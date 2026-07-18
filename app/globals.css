@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  /* Uber primary */
+  --primary: #000000;
+  --on-primary: #ffffff;
+  --ink: #000000;
+  --live: #1a7f37;
+
+  /* Figma charcoal scale (TheBus_V1 general UI) */
+  --charcoal-100: #fafafa;
+  --charcoal-200: #f4f4f5;
+  --charcoal-300: #ebeceb;
+  --charcoal-500: #cbcbcb;
+  --charcoal-600: #afafaf;
+  --charcoal-700: #858585;
+  --charcoal-800: #5e5a65;
+  --charcoal-900: #09090b;
+  --border: #e4e4e7;
+
+  /* Semantic tokens — Uber structure, Figma grays */
+  --body: var(--charcoal-800);
+  --mute: var(--charcoal-700);
+  --canvas: #ffffff;
+  --canvas-muted: var(--charcoal-100);
+  --canvas-soft: var(--charcoal-300);
+  --canvas-softer: var(--charcoal-200);
+  --surface-pressed: var(--charcoal-500);
+  --hairline: var(--border);
+
+  --nav-height: 4.125rem;
+  --radius-md: 8px;
+  --radius-xs: 4px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-mute: var(--mute);
+  --color-canvas: var(--canvas);
+  --color-canvas-muted: var(--canvas-muted);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-canvas-softer: var(--canvas-softer);
+  --color-surface-pressed: var(--surface-pressed);
+  --color-hairline: var(--hairline);
+  --color-live: var(--live);
+  --color-charcoal-100: var(--charcoal-100);
+  --color-charcoal-200: var(--charcoal-200);
+  --color-charcoal-300: var(--charcoal-300);
+  --color-charcoal-500: var(--charcoal-500);
+  --color-charcoal-600: var(--charcoal-600);
+  --color-charcoal-700: var(--charcoal-700);
+  --color-charcoal-800: var(--charcoal-800);
+  --font-sans: var(--font-inter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas-soft);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  font-weight: 700;
+}
+
+.app-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 430px;
+  height: 100dvh;
+  margin-inline: auto;
+  overflow: hidden;
+  background: var(--canvas);
+  border-inline: 1px solid var(--hairline);
+}
+
+.app-shell.bg-canvas-soft {
+  background: var(--canvas-soft);
+}
+
+.app-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.home-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  --sheet-height-expanded: 52%;
+  --sheet-height-collapsed: 3rem;
+  --sheet-height: var(--sheet-height-expanded);
+}
+
+.home-screen--sheet-collapsed {
+  --sheet-height: var(--sheet-height-collapsed);
+}
+
+.home-screen__map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.home-screen__sheet {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1000;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  max-height: var(--sheet-height);
+  transition: max-height 0.25s ease-out;
+}
+
+.stop-detail__refresh-bar {
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none;
+}
+
+.stop-detail__scroll {
+  box-shadow: none !important;
+}
+
+.stop-detail__scroll > section,
+.stop-detail__scroll > ul {
+  box-shadow: none !important;
+}
+
+.home-screen__map-controls {
+  bottom: calc(var(--sheet-height) + 1rem);
+  transition: bottom 0.25s ease-out;
+}
+
+.tracking-map__controls {
+  bottom: calc(11rem + max(env(safe-area-inset-bottom), 1rem));
+}
+
+.tracking-summary {
+  padding-inline: 27.5px;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--canvas-soft);
+  font-family: inherit;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--hairline) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-control-zoom a {
+  color: var(--ink) !important;
+  border-color: var(--hairline) !important;
+}
+
+.sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--charcoal-500);
+}
