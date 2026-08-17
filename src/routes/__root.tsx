@@ -1,5 +1,16 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 
+import { ServiceAlertMonitor } from "@/components/alerts/ServiceAlertMonitor";
+
+function RootLayout() {
+  return (
+    <>
+      <ServiceAlertMonitor />
+      <Outlet />
+    </>
+  );
+}
+
 function NotFoundPage() {
   return (
     <main className="app-shell flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
@@ -16,6 +27,6 @@ function NotFoundPage() {
 }
 
 export const Route = createRootRoute({
-  component: Outlet,
+  component: RootLayout,
   notFoundComponent: NotFoundPage,
 });

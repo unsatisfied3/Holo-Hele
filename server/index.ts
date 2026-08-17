@@ -16,6 +16,7 @@ import {
   getGtfsStopSchedule,
   getGtfsTrackingRoute,
 } from "@/server/gtfs";
+import { getServiceAlerts } from "@/server/service-alerts";
 import type { NearbyStopResult, TrackingRouteStop } from "@/types/transit";
 
 const DEFAULT_LAT = 21.3047;
@@ -452,6 +453,9 @@ const server = Bun.serve({
     }
     if (url.pathname === "/api/daily-schedule") {
       return dailyStopSchedule(url, origin);
+    }
+    if (url.pathname === "/api/alerts") {
+      return json(await getServiceAlerts(), 200, origin);
     }
     return json({ error: "Not found." }, 404, origin);
   },

@@ -130,3 +130,36 @@ export interface RouteScheduleResponse {
   dataSource: "scheduled";
   fetchedAt: string;
 }
+
+export type TransitAlertType =
+  | "service-disruption"
+  | "detour"
+  | "stop-closure"
+  | "service-change"
+  | "roadwork"
+  | "other";
+
+export interface TransitAlert {
+  id: string;
+  title: string;
+  description: string;
+  affectedRoutes: string[];
+  affectedStops: string[];
+  systemWide: boolean;
+  startTime?: string;
+  endTime?: string;
+  type: TransitAlertType;
+  severity: "info" | "warning" | "critical";
+  source: "thebus-live" | "holohele-demo";
+  sourceUrl?: string;
+  isLive: boolean;
+}
+
+export interface ServiceAlertsResponse {
+  alerts: TransitAlert[];
+  fetchedAt: string;
+  sourceUrl: string;
+  status: "live" | "stale" | "unavailable";
+  cached: boolean;
+  error?: string;
+}

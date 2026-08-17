@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { ServiceAlertBanner } from "@/components/alerts/ServiceAlertBanner";
 import { FigmaIcon, RouteLineBadge } from "@/components/icons/FigmaIcon";
 import { RouteOverviewMap } from "@/components/routes/RouteOverviewMap";
-import { fetchRouteSchedule } from "@/lib/api/transit";
+import { fetchRouteSchedule, fetchServiceAlerts } from "@/lib/api/transit";
+import {
+  findAlertForRoute,
+  SERVICE_ALERT_REFRESH_MS,
+  SERVICE_ALERTS_QUERY_KEY,
+} from "@/lib/service-alerts";
 
 export const Route = createFileRoute("/routes/$routeId")({
   component: RouteOverviewPage,
@@ -19,6 +25,16 @@ function RouteOverviewPage() {
     enabled: isHawaiiKaiRoute,
     retry: 1,
   });
+  const alertsQuery = useQuery({
+    queryKey: SERVICE_ALERTS_QUERY_KEY,
+    queryFn: fetchServiceAlerts,
+    refetchInterval: SERVICE_ALERT_REFRESH_MS,
+    staleTime: SERVICE_ALERT_REFRESH_MS,
+    enabled: isHawaiiKaiRoute,
+  });
+  const serviceAlert = routeQuery.data
+    ? findAlertForRoute(alertsQuery.data?.alerts ?? [], routeQuery.data.route)
+    : undefined;
 
   if (!isHawaiiKaiRoute) return <RoutePreviewNotFound />;
 
@@ -76,6 +92,13 @@ function RouteOverviewPage() {
               </p>
             </div>
           </section>
+
+          {serviceAlert ? (
+            <ServiceAlertBanner
+              alert={serviceAlert}
+              routePageId={routeId}
+            />
+          ) : null}
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <ol className="relative bg-canvas" aria-label="Route stops">

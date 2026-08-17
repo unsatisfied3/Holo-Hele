@@ -375,9 +375,11 @@ Route: `/settings`. Combines the app preferences with the Figma
 `More Information.png` structure:
 
 - Centered title, compact Holo Hele logo, and the real package version
-- **Preferences:** language and location. The location switch represents the
+- **Preferences:** language, location, and service-alert notifications. The location switch represents the
   rider’s preference and stays on when device permission is blocked; show a
   clear permission message while map screens continue using their fallback.
+  Notification permission is requested only after the rider turns Service
+  alerts on. When enabled, a secondary pale-blue test button appears.
 - **Resources:** FAQ, fares and passes, videos, system map, and rider alerts
 - **TheBus:** phone, report, website, and rating links
 - **Legal:** terms and privacy
@@ -399,12 +401,15 @@ instead of the black pill CTA.
 Back returns to the originating bus when an alert was opened from a bus banner;
 otherwise it returns to Settings.
 
-Until a production alert source is connected, demonstration disruptions live
-only in `lib/mock/service-alerts.ts`; presentation copy may mirror the intended
-production experience, but this module must be replaced before release.
-Affected favorite buses show the same compact warning state and link to the
-in-app alert page. Never modify real arrival times to imply a delay from demo
-alert data.
+Current notices come from the official TheBus Service Disruption page through
+the Bun API and refresh at a five-minute cadence. Loading, empty, stale, and
+unavailable states remain inside the alerts surface and never block other
+transit features. Live notices are matched to routes by exact normalized IDs
+and to stops only when an explicit official stop number is available.
+Demonstration disruptions remain isolated in `lib/mock/service-alerts.ts` and
+are visibly labeled as portfolio scenarios. Affected favorite buses and stops
+show the same compact warning state and link to the in-app alert page. Never
+modify real arrival times to imply a delay from any alert data.
 The compact Favorites warning uses dark `--alert` amber for the icon and text
 on a light `--alert-subtle` yellow chip; the full alert banner remains pale blue.
 

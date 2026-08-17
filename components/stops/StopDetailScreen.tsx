@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ServiceAlertBanner } from "@/components/alerts/ServiceAlertBanner";
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { LineTags } from "@/components/stops/LineTags";
 import { StopArrivalItem } from "@/components/stops/StopArrivalItem";
 import { StopDetailHeader } from "@/components/stops/StopDetailHeader";
-import { fetchStopArrivals } from "@/lib/api/transit";
+import { fetchServiceAlerts, fetchStopArrivals } from "@/lib/api/transit";
+import {
+  findAlertForStop,
+  SERVICE_ALERT_REFRESH_MS,
+  SERVICE_ALERTS_QUERY_KEY,
+} from "@/lib/service-alerts";
 import type { StopLocation } from "@/types/transit";
 
 interface StopDetailScreenProps {
@@ -30,6 +36,13 @@ export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScre
     refetchInterval: (query) =>
       query.state.data?.dataSource === "live" ? LIVE_REFRESH_MS : false,
   });
+  const alertsQuery = useQuery({
+    queryKey: SERVICE_ALERTS_QUERY_KEY,
+    queryFn: fetchServiceAlerts,
+    refetchInterval: SERVICE_ALERT_REFRESH_MS,
+    staleTime: SERVICE_ALERT_REFRESH_MS,
+  });
+  const serviceAlert = findAlertForStop(alertsQuery.data?.alerts ?? [], stop.id);
 
   const data = arrivalsQuery.data;
   const error =
@@ -58,6 +71,9 @@ export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScre
   return (
     <div className="app-shell flex min-h-dvh flex-col bg-canvas-soft">
       <StopDetailHeader stop={stop} fromFavorites={fromFavorites} />
+      {serviceAlert ? (
+        <ServiceAlertBanner alert={serviceAlert} stopId={stop.id} />
+      ) : null}
 
       <div className="stop-detail__scroll min-h-0 flex-1 overflow-y-auto bg-canvas-soft">
         <div className="stop-detail__refresh-bar sticky top-0 z-10 flex items-center gap-1 bg-canvas-soft px-4 py-1.5 text-xs">

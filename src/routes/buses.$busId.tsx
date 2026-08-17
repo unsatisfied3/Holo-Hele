@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { ServiceAlertBanner } from "@/components/alerts/ServiceAlertBanner";
 import {
-  AlertTriangleIcon,
   FigmaIcon,
   RouteLineBadge,
 } from "@/components/icons/FigmaIcon";
@@ -11,9 +11,14 @@ import {
   toggleFavoriteBus,
   useFavoriteBusIds,
 } from "@/lib/favorites";
-import { fetchStopArrivals } from "@/lib/api/transit";
+import { fetchServiceAlerts, fetchStopArrivals } from "@/lib/api/transit";
 import { getFavoriteBusById } from "@/lib/mock/favorites";
 import { getServiceAlertForBus } from "@/lib/mock/service-alerts";
+import {
+  findAlertForRoute,
+  SERVICE_ALERT_REFRESH_MS,
+  SERVICE_ALERTS_QUERY_KEY,
+} from "@/lib/service-alerts";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/buses/$busId")({
@@ -31,6 +36,12 @@ function FavoriteBusPage() {
     queryKey: ["favorite-bus-arrivals", bus?.stopId],
     queryFn: () => fetchStopArrivals(bus?.stopId ?? ""),
     enabled: Boolean(bus),
+  });
+  const alertsQuery = useQuery({
+    queryKey: SERVICE_ALERTS_QUERY_KEY,
+    queryFn: fetchServiceAlerts,
+    refetchInterval: SERVICE_ALERT_REFRESH_MS,
+    staleTime: SERVICE_ALERT_REFRESH_MS,
   });
 
   if (!bus) {
@@ -53,7 +64,11 @@ function FavoriteBusPage() {
     data?.error ??
     (arrivalsQuery.error instanceof Error ? arrivalsQuery.error.message : null);
   const isFavorite = favoriteBusIds.includes(bus.id);
-  const serviceAlert = getServiceAlertForBus(bus.id);
+  const liveServiceAlert = findAlertForRoute(
+    alertsQuery.data?.alerts ?? [],
+    bus.route,
+  );
+  const serviceAlert = liveServiceAlert ?? getServiceAlertForBus(bus.id);
 
   return (
     <main className="app-shell flex min-h-dvh flex-col bg-canvas-soft">
@@ -70,25 +85,11 @@ function FavoriteBusPage() {
       </header>
 
       {serviceAlert ? (
-        <Link
-          to="/alerts"
-          search={{ alert: serviceAlert.id, bus: bus.id }}
-          aria-label={`View service alert: ${serviceAlert.title}`}
-          className="flex min-h-[72px] items-center gap-3 bg-brand-blue-subtle px-4 py-3 transition-colors hover:bg-brand-blue-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-blue"
-        >
-          <AlertTriangleIcon className="h-7 w-7 shrink-0 text-brand-blue" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">
-              {serviceAlert.title}
-            </span>
-            <span className="mt-0.5 block text-xs text-body">
-              {serviceAlert.statusLabel}
-            </span>
-          </span>
-          <span className="text-sm font-medium text-brand-blue underline underline-offset-4">
-            View
-          </span>
-        </Link>
+        <ServiceAlertBanner
+          alert={serviceAlert}
+          busId={bus.id}
+          demo={liveServiceAlert ? undefined : "route-1l"}
+        />
       ) : null}
 
       <section className="border-b border-charcoal-500 bg-canvas px-4 pb-4 pt-6">

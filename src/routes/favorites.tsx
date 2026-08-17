@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import {
@@ -6,6 +7,7 @@ import {
   FigmaIcon,
 } from "@/components/icons/FigmaIcon";
 import { AppShell } from "@/components/layout/AppShell";
+import { fetchServiceAlerts } from "@/lib/api/transit";
 import {
   removeFavoriteBus,
   removeFavoriteStop,
@@ -17,9 +19,16 @@ import {
   type FavoriteBusDefinition,
 } from "@/lib/mock/favorites";
 import { getServiceAlertForBus } from "@/lib/mock/service-alerts";
+import {
+  findAlertForRoute,
+  findAlertForStop,
+  SERVICE_ALERT_REFRESH_MS,
+  SERVICE_ALERTS_QUERY_KEY,
+} from "@/lib/service-alerts";
 import { getStopById } from "@/lib/thebus/stops";
 import { cn } from "@/lib/utils";
 import type { StopLocation } from "@/types/transit";
+import type { TransitAlert } from "@/types/transit";
 
 type FavoriteTab = "buses" | "stops";
 
@@ -64,6 +73,13 @@ function FavoritesPage() {
   const [query, setQuery] = useState("");
   const favoriteStopIds = useFavoriteStopIds();
   const favoriteBusIds = useFavoriteBusIds();
+  const alertsQuery = useQuery({
+    queryKey: SERVICE_ALERTS_QUERY_KEY,
+    queryFn: fetchServiceAlerts,
+    refetchInterval: SERVICE_ALERT_REFRESH_MS,
+    staleTime: SERVICE_ALERT_REFRESH_MS,
+  });
+  const liveAlerts = alertsQuery.data?.alerts ?? [];
   const normalizedQuery = query.trim().toLocaleLowerCase();
 
   const favoriteStops = favoriteStopIds
@@ -147,21 +163,28 @@ function FavoritesPage() {
             </div>
           </section>
         ) : activeTab === "buses" ? (
-          <FavoriteBusList buses={visibleBuses} />
+          <FavoriteBusList buses={visibleBuses} liveAlerts={liveAlerts} />
         ) : (
-          <FavoriteStopList stops={visibleStops} />
+          <FavoriteStopList stops={visibleStops} liveAlerts={liveAlerts} />
         )}
       </main>
     </AppShell>
   );
 }
 
-function FavoriteBusList({ buses }: { buses: FavoriteBusDefinition[] }) {
+function FavoriteBusList({
+  buses,
+  liveAlerts,
+}: {
+  buses: FavoriteBusDefinition[];
+  liveAlerts: TransitAlert[];
+}) {
   return (
     <section aria-label="Favorite buses" className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
         {buses.map((bus) => {
-          const serviceAlert = getServiceAlertForBus(bus.id);
+          const serviceAlert =
+            findAlertForRoute(liveAlerts, bus.route) ?? getServiceAlertForBus(bus.id);
 
           return (
           <li key={bus.id} className="flex min-h-[64px] items-center gap-2">
@@ -185,7 +208,10 @@ function FavoriteBusList({ buses }: { buses: FavoriteBusDefinition[] }) {
                 {serviceAlert ? (
                   <p className="mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-alert-subtle px-1.5 py-1 text-xs font-medium text-alert">
                     <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span>{serviceAlert.title}</span>
+                    <span>
+                      {serviceAlert.title}
+                      {serviceAlert.source === "holohele-demo" ? " · Demo" : ""}
+                    </span>
                   </p>
                 ) : null}
               </Link>
@@ -202,11 +228,19 @@ function FavoriteBusList({ buses }: { buses: FavoriteBusDefinition[] }) {
   );
 }
 
-function FavoriteStopList({ stops }: { stops: StopLocation[] }) {
+function FavoriteStopList({
+  stops,
+  liveAlerts,
+}: {
+  stops: StopLocation[];
+  liveAlerts: TransitAlert[];
+}) {
   return (
     <section aria-label="Favorite stops" className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
-        {stops.map((stop) => (
+        {stops.map((stop) => {
+          const serviceAlert = findAlertForStop(liveAlerts, stop.id);
+          return (
           <li key={stop.id} className="flex min-h-[56px] items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-blue-subtle">
               <FigmaIcon
@@ -223,6 +257,12 @@ function FavoriteStopList({ stops }: { stops: StopLocation[] }) {
                 className="min-w-0 flex-1 rounded-[var(--radius-xs)] py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
               >
                 <p className="truncate text-sm font-normal leading-snug text-ink">{stop.name}</p>
+                {serviceAlert ? (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-alert-subtle px-1.5 py-1 text-xs font-medium text-alert">
+                    <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{serviceAlert.title}</span>
+                  </p>
+                ) : null}
               </Link>
               <FavoriteButton
                 label={`Remove ${stop.name} from favorites`}
@@ -230,7 +270,8 @@ function FavoriteStopList({ stops }: { stops: StopLocation[] }) {
               />
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

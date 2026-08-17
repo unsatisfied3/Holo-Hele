@@ -16,7 +16,7 @@ Holo Hele is a mobile-first redesign prototype for finding and understanding Oʻ
 - **State management:** React state and TanStack Query
 - **Routing:** TanStack Router with file-based routes
 - **Transit APIs:** TheBus official GTFS feed; optional TheBus HEA arrivals and vehicle endpoints
-- **Desktop packaging:** Tauri 2 with Rust
+- **Desktop packaging:** Tauri 2 with Rust and the official notification plugin
 - **Testing/tooling:** Playwright, ESLint, and TypeScript
 
 ## Current app structure
@@ -32,10 +32,10 @@ The React client lives in `src/` and `components/`. File routes render pages; re
 - **Route details** — The Hawaiʻi Kai Route 1L example loads an official GTFS trip, shape, stops, and times. Other route URLs show a preview-unavailable state.
 - **Schedules** — Favorite stop and bus flows can open official GTFS daily departures for today or tomorrow and choose a line. Times are scheduled, not live estimates.
 - **Favorites** — Saved buses and curated stops have searchable Buses/Stops tabs, filled-heart saved states, context-aware back navigation, and local persistence.
-- **Rider alerts** — An in-app page and contextual Route 1L alert use a static demonstration fixture.
+- **Rider alerts** — The Bun API retrieves, normalizes, and caches current TheBus Service Disruption notices. The in-app page distinguishes live, stale/unavailable, and labeled demo states, while exact route/stop matches add restrained contextual indicators.
 - **Search** — Categorizes buses, stops, and places from curated preview records.
 - **Trip planning and guidance** — Route options, directions, and live-direction screens form a complete demonstrational UI flow; journey routes and timing are simulated.
-- **Settings** — Persists language/location preferences and links to TheBus resources, legal pages, and rider alerts.
+- **Settings** — Persists language, location, and service-notification preferences; requests notification permission only after rider intent; provides a test notification; and links to TheBus resources, legal pages, and rider alerts.
 
 ## User flows
 
@@ -73,6 +73,10 @@ Provides stops, routes, trips, stop times, calendars, shapes, and scheduled serv
 
 Provides estimated arrivals and vehicle positions when `THEBUS_API_KEY` is configured. It supports stop details, nearby-stop enrichment, and tracking. Without it, the app uses official scheduled GTFS data. HEA does not provide disruptions here.
 
+### TheBus Service Disruption page
+
+The Bun API fetches `thebus.org/Updates/ServiceDisruption.asp`, parses current notices into the shared `TransitAlert` model, and caches successful results for five minutes. It extracts exact alphanumeric route IDs and explicit affected stop numbers; suggested alternative stops remain in the description rather than being marked closed. A last-known-good response is returned as stale when refresh fails, and an unavailable response stays isolated from other API features. The broader Rider Alerts index remains a second-phase source because its mixed notices and linked detail pages require more fragile crawling.
+
 ### CARTO Light / OpenStreetMap
 
 Provides basemap tiles. Transit markers and overlays come from Holo Hele data.
@@ -87,6 +91,7 @@ Provides rider coordinates after permission; otherwise maps use a fixed downtown
 
 - HEA arrivals and vehicle locations, only when a valid server-side API key is configured.
 - Browser geolocation while permission is enabled and the app is open.
+- Current official TheBus Service Disruption notices, retrieved server-side and refreshed at a five-minute cadence.
 
 ### Scheduled official data
 
@@ -112,11 +117,15 @@ The Favorites screen and empty-query Search screen consume saved stops. Bus deta
 
 ## Alerts and disruptions
 
-The app has one static Route 1L “Detour in effect” fixture. It is matched by preview bus ID, appears in Favorites and on the bus page, and opens `/alerts` with affected line, stop, and rider guidance. No live alert feed, update polling, expiration logic, or alternative-route calculation exists. The presentation copy is realistic for demonstrations, but the source is explicitly marked preview-only in code.
+`GET /api/alerts` returns normalized official service disruptions plus source status metadata. Deterministic alert IDs support duplicate suppression, route matching is exact (`1` does not match `1L`), stop matching uses explicit stop numbers only, and `systemWide` represents broad notices intentionally. TanStack Query polls every five minutes. `/alerts` preserves the established pale-blue design and provides loading, empty, stale, and unavailable states plus official source attribution. Relevant live alerts can appear on favorite buses/stops, bus detail, stop detail, and route detail without changing arrival data.
+
+The existing Route 1L demonstration alert remains under `lib/mock/`, joined by Stop 437 and system-wide portfolio scenarios. Demo content is never returned by the live API and is visibly labeled when rendered.
 
 ## Notifications
 
-Notifications are not implemented. There is no native Tauri notification plugin, browser Notification/Push API usage, permission flow, service worker, backend device-token store, event trigger, or test-notification control. The app cannot notify riders while open, backgrounded, or closed.
+Saved bus routes are the notification subscription source; there is no second route list. When Service alerts is enabled in Settings, Holo Hele requests permission contextually and uses the official Tauri notification plugin in the desktop shell or the browser Notifications API on the web. While the app process is running, the alert monitor refreshes every five minutes, matches new notices to exact saved routes (or an intentional system-wide alert), and stores up to 100 notified IDs to avoid repeat alerts. The first successful alert load establishes a quiet baseline so installing or opening the feature does not announce every already-active notice. Permission denial and unsupported environments leave in-app alerts usable. Settings includes a repeatable test notification.
+
+This is local notification delivery, not production remote push. There is no service worker/background worker, push provider, backend scheduler, device-token store, or guaranteed delivery after Holo Hele is completely terminated.
 
 ## Important UX decisions
 
@@ -137,21 +146,25 @@ Notifications are not implemented. There is no native Tauri notification plugin,
 - `components/stops/StopDetailScreen.tsx` — arrivals and live refresh behavior
 - `components/tracking/TrackingScreen.tsx` — tracking queries, location, carousel, and states
 - `src/routes/favorites.tsx` — saved buses/stops UI
+- `src/routes/alerts.tsx` and `components/alerts/` — live/demo alert presentation, contextual banner, and running-app monitor
 - `src/routes/schedule.tsx` — today/tomorrow GTFS schedule flow
 - `lib/favorites.ts` and `lib/onboarding.ts` — local persistence
 - `lib/api/transit.ts` — browser-to-Bun API client
+- `lib/service-alerts.ts` and `lib/notifications.ts` — exact matching, notification decisions/copy, permission abstraction, and alert-notification persistence
 - `lib/thebus/client.ts` — HEA arrivals and vehicle client
-- `server/index.ts` and `server/gtfs.ts` — API endpoints and GTFS indexing
+- `server/index.ts`, `server/gtfs.ts`, and `server/service-alerts.ts` — API endpoints, GTFS indexing, and TheBus alert parsing/caching
 - `lib/mock/` — clearly separated demonstration fixtures
 - `types/transit.ts` — shared data contracts
 
 ## Persistence
 
-`localStorage` stores onboarding completion, selected language, location preference, favorite stop IDs, and favorite bus IDs. Storage is per browser and origin; `localhost`, `127.0.0.1`, and a LAN address do not share it. TanStack Query data is memory-only. The GTFS index is memory-only on the Bun server. There is no database, login, IndexedDB store, offline cache, or persisted alert/notification state.
+`localStorage` stores onboarding completion, selected language, location preference, favorite stop IDs, favorite bus IDs, the service-notification preference, notification baseline state, and up to 100 notified alert IDs. Storage is per browser and origin; `localhost`, `127.0.0.1`, and a LAN address do not share it. TanStack Query data is memory-only. The GTFS index and five-minute service-alert cache are memory-only on the Bun server. There is no database, login, IndexedDB store, or offline cache.
 
 ## Demo functionality
 
 - Open `/buses/1l-437` or the Route 1L favorite to demonstrate a contextual detour and in-app alert details.
+- Open `/alerts?demo=route-1l`, `/alerts?demo=stop-437`, or `/alerts?demo=system-wide` for deliberately labeled portfolio scenarios.
+- In development, open `/settings?demoAlerts=1` after enabling Service alerts to reveal Route 1L, Stop 437, and system-wide demo-notification buttons. The normal **Send test notification** control is available whenever notifications are enabled.
 - Open `/routes/1l-hawaii-kai` to demonstrate the official scheduled Hawaiʻi Kai route map and stop sequence.
 - Search for “Ala Moana” and continue through Plan Trip to demonstrate simulated directions and live guidance.
 - With no HEA key, known fixture URLs such as `/stops/1280/track/mock-1280-a1` exercise mock tracking directly.
@@ -159,7 +172,8 @@ Notifications are not implemented. There is no native Tauri notification plugin,
 
 ## Known limitations
 
-- No production service-alert source or push notifications.
+- Service disruptions depend on a legacy TheBus HTML page whose structure may change; last-known-good and unavailable states prevent it from affecting other transit features. The broader Rider Alerts index is not yet parsed.
+- Local notifications require Holo Hele to be running. True closed-app remote push requires backend alert processing, device registration/tokens, and a platform push provider.
 - Trip planning, place search, directions, and guidance are simulated and limited to curated fixtures.
 - Route detail is implemented only for the Hawaiʻi Kai Route 1L preview.
 - Search uses five curated stops, two buses, and three places rather than full GTFS/geocoding search.
@@ -176,8 +190,8 @@ Notifications are not implemented. There is no native Tauri notification plugin,
 
 ## Next priorities
 
-1. Connect and clearly attribute a production service-alert source.
-2. Decide notification use cases, permission timing, delivery platform, and backend before implementing push notifications.
+1. Monitor the Service Disruption parser and add fixture coverage when TheBus markup changes.
+2. Decide whether the mixed Rider Alerts index is maintainable enough for a cached index/detail integration.
 3. Replace simulated search/trip planning with full GTFS search plus a real routing/geocoding service.
 4. Generalize route details and bus favorites beyond the current curated examples.
 5. Make favorites resolve arbitrary GTFS stops and add account sync only if cross-device persistence is required.
@@ -187,6 +201,10 @@ Notifications are not implemented. There is no native Tauri notification plugin,
 
 ### 2026-08-16
 
+- Added server-side TheBus Service Disruption parsing, normalization, deterministic IDs, five-minute caching, stale/unavailable handling, and `/api/alerts`.
+- Connected exact live route/stop alerts to Rider Alerts, Favorites, bus detail, stop detail, and route detail while preserving clearly labeled demo scenarios.
+- Added opt-in Tauri/browser local notifications for new alerts affecting saved routes, duplicate suppression, Settings permission/test controls, and hidden development demo controls.
+- Added focused parser, cache, matching, duplicate, preference, system-wide, and unsupported-notification tests.
 - Added this verified project-state snapshot.
 - Updated the Settings smoke test to match the intentionally removed Reset onboarding control.
 - Added official next-day GTFS schedule loading and preserved the selected day through line selection.

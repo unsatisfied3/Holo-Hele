@@ -3,6 +3,7 @@ import type {
   DailyStopScheduleResponse,
   RouteScheduleResponse,
   ScheduleDay,
+  ServiceAlertsResponse,
   StopArrivalsResponse,
   StopLocation,
   TrackingResponse,
@@ -83,4 +84,8 @@ export function fetchDailyStopSchedule(
     `/api/daily-schedule?${search}`,
     "Unable to load the daily schedule.",
   );
+}
+
+export function fetchServiceAlerts(): Promise<ServiceAlertsResponse> {
+  return getJson("/api/alerts", "Unable to load service alerts.");
 }
