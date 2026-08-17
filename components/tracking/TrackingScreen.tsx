@@ -1,10 +1,12 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { TrackingHeader } from "@/components/tracking/TrackingHeader";
 import { TrackingMap } from "@/components/tracking/TrackingMap";
 import { TrackingSummary } from "@/components/tracking/TrackingSummary";
-import type { StopLocation, TrackingResponse } from "@/types/transit";
+import { fetchStopArrivals, fetchTracking } from "@/lib/api/transit";
+import { getLocationPreference } from "@/lib/onboarding";
+import type { StopLocation } from "@/types/transit";
 
 interface TrackingScreenProps {
   stop: StopLocation;
@@ -13,129 +15,173 @@ interface TrackingScreenProps {
 
 const LIVE_REFRESH_MS = 15_000;
 
-async function loadTracking(
-  stopId: string,
-  arrivalId: string,
-): Promise<{ data: TrackingResponse | null; error: string | null }> {
-  const response = await fetch(
-    `/api/tracking?stop=${encodeURIComponent(stopId)}&arrival=${encodeURIComponent(arrivalId)}`,
-    { cache: "no-store" },
+function TrackingLoadingState() {
+  return (
+    <>
+      <div
+        className="absolute inset-0 animate-pulse bg-canvas-soft motion-reduce:animate-none"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-x-4 top-1/2 z-[1100] -translate-y-1/2 rounded-[var(--radius-xs)] border border-hairline bg-canvas px-4 py-3 text-center"
+        role="status"
+      >
+        <p className="text-sm font-medium text-ink">Locating your bus…</p>
+        <p className="mt-1 text-xs text-body">This can take a few seconds.</p>
+      </div>
+      <div className="tracking-summary pointer-events-none absolute inset-x-0 bottom-0 z-[1200] pb-[max(env(safe-area-inset-bottom),1rem)]">
+        <div className="mx-auto h-28 w-full max-w-80 animate-pulse rounded-[var(--radius-xs)] border border-hairline bg-canvas motion-reduce:animate-none" />
+      </div>
+    </>
   );
-  const json = (await response.json()) as TrackingResponse & { error?: string };
+}
 
-  if (!response.ok) {
-    return {
-      data: null,
-      error: json.error ?? "Unable to load bus tracking.",
-    };
-  }
-
-  return {
-    data: json,
-    error: json.error ?? null,
-  };
+function TrackingErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <>
+      <div className="absolute inset-0 bg-canvas-soft" />
+      <div className="absolute inset-x-6 top-1/2 z-[1100] -translate-y-1/2 rounded-[var(--radius-xs)] border border-hairline bg-canvas px-5 py-5 text-center">
+        <h2 className="text-base font-semibold text-ink">Bus location unavailable</h2>
+        <p className="mt-2 text-sm leading-relaxed text-body">{message}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 min-h-10 rounded-[var(--radius-pill)] bg-primary px-5 py-2 text-sm font-medium text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Try again
+        </button>
+      </div>
+    </>
+  );
 }
 
 export function TrackingScreen({ stop, arrivalId }: TrackingScreenProps) {
-  const [data, setData] = useState<TrackingResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [userLocation, setUserLocation] = useState<[number, number] | undefined>();
 
   useEffect(() => {
-    let cancelled = false;
+    if (!getLocationPreference() || !navigator.geolocation) return;
 
-    async function load(showLoading: boolean) {
-      if (showLoading) setLoading(true);
-      setError(null);
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation([
+          position.coords.latitude,
+          position.coords.longitude,
+        ]);
+      },
+      () => setUserLocation(undefined),
+      {
+        enableHighAccuracy: true,
+        maximumAge: 30_000,
+        timeout: 10_000,
+      },
+    );
 
-      try {
-        const result = await loadTracking(stop.id, arrivalId);
-        if (cancelled) return;
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
-        if (!result.data) {
-          setData(null);
-          setError(result.error);
-          return;
-        }
+  const trackingQuery = useQuery({
+    queryKey: ["tracking", stop.id, arrivalId],
+    queryFn: () => fetchTracking(stop.id, arrivalId),
+    refetchInterval: (query) =>
+      query.state.data?.dataSource === "live" ? LIVE_REFRESH_MS : false,
+  });
+  const arrivalsQuery = useQuery({
+    queryKey: ["stop-arrivals", stop.id],
+    queryFn: () => fetchStopArrivals(stop.id),
+    refetchInterval: LIVE_REFRESH_MS,
+  });
 
-        setData(result.data);
-        setError(result.error);
-      } catch {
-        if (!cancelled) {
-          setData(null);
-          setError("Unable to load bus tracking. Check your connection and try again.");
-        }
-      } finally {
-        if (!cancelled && showLoading) setLoading(false);
-      }
+  const data = trackingQuery.data;
+  const carouselArrivals = useMemo(() => {
+    if (!data) return [];
+
+    const trackable =
+      arrivalsQuery.data?.arrivals.filter(
+        (arrival) =>
+          arrival.estimated &&
+          (arrival.vehicle != null ||
+            (arrival.latitude != null && arrival.longitude != null)),
+      ) ?? [];
+    const deduped = new Map(
+      [...trackable, data.arrival].map((arrival) => [arrival.id, arrival]),
+    );
+    const sorted = Array.from(deduped.values()).sort(
+      (a, b) =>
+        (a.minutesUntil ?? Number.MAX_SAFE_INTEGER) -
+        (b.minutesUntil ?? Number.MAX_SAFE_INTEGER),
+    );
+    const visible = sorted.slice(0, 4);
+    if (!visible.some((arrival) => arrival.id === data.arrival.id)) {
+      visible[visible.length - 1] = data.arrival;
+      visible.sort(
+        (a, b) =>
+          (a.minutesUntil ?? Number.MAX_SAFE_INTEGER) -
+          (b.minutesUntil ?? Number.MAX_SAFE_INTEGER),
+      );
     }
-
-    void load(true);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [stop.id, arrivalId]);
-
-  useEffect(() => {
-    if (data?.dataSource !== "live" || error) return;
-
-    let cancelled = false;
-
-    const interval = window.setInterval(() => {
-      void (async () => {
-        try {
-          const result = await loadTracking(stop.id, arrivalId);
-          if (cancelled || !result.data) return;
-          setData(result.data);
-          setError(result.error);
-        } catch {
-          if (!cancelled) {
-            setError("Unable to load bus tracking. Check your connection and try again.");
-          }
-        }
-      })();
-    }, LIVE_REFRESH_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [data?.dataSource, error, stop.id, arrivalId]);
+    return visible;
+  }, [arrivalsQuery.data, data]);
+  const error =
+    data?.error ??
+    (trackingQuery.error instanceof Error
+      ? trackingQuery.error.message
+      : trackingQuery.isError
+        ? "Unable to load bus tracking. Check your connection and try again."
+        : null);
 
   return (
     <div className="app-shell relative h-dvh overflow-hidden bg-canvas">
-      {loading ? (
-        <div className="flex h-full items-center justify-center px-4">
-          <p className="text-sm text-body">Loading bus location…</p>
-        </div>
+      <TrackingHeader stopId={stop.id} />
+
+      {trackingQuery.isPending ? (
+        <TrackingLoadingState />
       ) : error && !data ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-          <p className="text-sm text-body">{error}</p>
-        </div>
+        <TrackingErrorState
+          message={error}
+          onRetry={() => void trackingQuery.refetch()}
+        />
       ) : data ? (
         <>
-          <div className="absolute inset-0">
+          <div className="tracking-map absolute inset-0">
             <TrackingMap
               stop={stop}
               arrival={data.arrival}
               vehicleLocation={data.vehicleLocation}
-              stopsAway={data.stopsAway}
+              routeStops={data.routeStops ?? []}
+              userLocation={userLocation}
             />
           </div>
 
-          <TrackingHeader stopId={stop.id} />
-
-          {!data.vehicleLocation && data.arrival.estimated ? (
-            <p className="absolute inset-x-4 top-[calc(max(env(safe-area-inset-top),0.75rem)+3.5rem)] z-[500] rounded-[var(--radius-xs)] border border-hairline bg-canvas px-3 py-2 text-xs text-body">
-              Vehicle location is temporarily unavailable.
+          {error ? (
+            <p className="absolute inset-x-4 top-[calc(max(env(safe-area-inset-top),0.75rem)+3.75rem)] z-[1200] rounded-[var(--radius-xs)] border border-hairline bg-canvas px-3 py-2 text-xs text-body">
+              Live update paused. Showing the last available location.
+            </p>
+          ) : !data.vehicleLocation && data.arrival.estimated ? (
+            <p className="absolute inset-x-4 top-[calc(max(env(safe-area-inset-top),0.75rem)+3.75rem)] z-[1200] rounded-[var(--radius-xs)] border border-hairline bg-canvas px-3 py-2 text-xs text-body">
+              Vehicle location is temporarily unavailable. The map is centered on your stop.
             </p>
           ) : null}
 
           <TrackingSummary
             stop={stop}
-            arrival={data.arrival}
+            arrivals={carouselArrivals}
+            activeArrivalId={data.arrival.id}
             stopsAway={data.stopsAway}
+            stopsAwaySource={data.stopsAwaySource ?? "estimated"}
+            onArrivalSelect={(arrival) => {
+              void navigate({
+                to: "/stops/$id/track/$arrivalId",
+                params: { id: stop.id, arrivalId: arrival.id },
+                replace: true,
+              });
+            }}
           />
         </>
       ) : null}

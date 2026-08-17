@@ -1,4 +1,9 @@
-import type { StopLocation, TheBusArrival, VehicleLocation } from "@/types/transit";
+import type {
+  StopLocation,
+  TheBusArrival,
+  TrackingRouteStop,
+  VehicleLocation,
+} from "@/types/transit";
 
 /** Default tracking fields for mock arrivals. */
 export const MOCK_TRACKING_DEFAULTS = {
@@ -46,4 +51,47 @@ export function findMockArrival(
   arrivals: Record<string, TheBusArrival[]>,
 ): TheBusArrival | null {
   return (arrivals[stopId] ?? []).find((arrival) => arrival.id === arrivalId) ?? null;
+}
+
+const MOCK_ROUTE_STOPS: Record<string, StopLocation[]> = {
+  "1280": [
+    {
+      id: "45",
+      name: "Hotel St + Bishop St",
+      lat: 21.3093,
+      lng: -157.858,
+      kind: "stop",
+    },
+    {
+      id: "437",
+      name: "S King St + Punchbowl St",
+      lat: 21.3049,
+      lng: -157.8572,
+      kind: "stop",
+    },
+    {
+      id: "1280",
+      name: "S Beretania St + Pali Hwy + Bishop St",
+      lat: 21.3018,
+      lng: -157.8519,
+      kind: "stop",
+    },
+  ],
+};
+
+/** Explicit demo-only stop sequences; never mixed into live tracking responses. */
+export function getMockRouteStops(
+  stop: StopLocation,
+  stopsAway: number | null,
+): TrackingRouteStop[] {
+  const fullSequence = MOCK_ROUTE_STOPS[stop.id] ?? [stop];
+  const stops =
+    stopsAway == null || stopsAway <= 0
+      ? [fullSequence.at(-1) ?? stop]
+      : fullSequence.slice(-Math.min(stopsAway, fullSequence.length));
+  return stops.map((routeStop, index) => ({
+    ...routeStop,
+    sequence: index,
+    markerKind: index === stops.length - 1 ? "destination" : "intermediate",
+  }));
 }

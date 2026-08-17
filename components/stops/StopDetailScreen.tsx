@@ -1,14 +1,15 @@
-"use client";
-
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { LineTags } from "@/components/stops/LineTags";
 import { StopArrivalItem } from "@/components/stops/StopArrivalItem";
 import { StopDetailHeader } from "@/components/stops/StopDetailHeader";
-import type { StopArrivalsResponse, StopLocation } from "@/types/transit";
+import { fetchStopArrivals } from "@/lib/api/transit";
+import type { StopLocation } from "@/types/transit";
 
 interface StopDetailScreenProps {
   stop: StopLocation;
+  fromFavorites?: boolean;
 }
 
 const LIVE_REFRESH_MS = 30_000;
@@ -20,87 +21,24 @@ function formatRefreshTime(iso: string): string {
   return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
 }
 
-async function loadStopArrivalsResponse(stopId: string): Promise<{
-  data: StopArrivalsResponse | null;
-  error: string | null;
-}> {
-  const response = await fetch(`/api/arrivals?stop=${stopId}`, { cache: "no-store" });
-  const json = (await response.json()) as StopArrivalsResponse & { error?: string };
-
-  if (!response.ok) {
-    return {
-      data: null,
-      error: json.error ?? "Unable to load arrivals for this stop.",
-    };
-  }
-
-  return {
-    data: json,
-    error: json.error ?? null,
-  };
-}
-
-export function StopDetailScreen({ stop }: StopDetailScreenProps) {
-  const [data, setData] = useState<StopArrivalsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScreenProps) {
   const [tick, setTick] = useState(0);
 
-  useEffect(() => {
-    let cancelled = false;
+  const arrivalsQuery = useQuery({
+    queryKey: ["stop-arrivals", stop.id],
+    queryFn: () => fetchStopArrivals(stop.id),
+    refetchInterval: (query) =>
+      query.state.data?.dataSource === "live" ? LIVE_REFRESH_MS : false,
+  });
 
-    async function load(showLoading: boolean) {
-      if (showLoading) setLoading(true);
-      setError(null);
-
-      try {
-        const result = await loadStopArrivalsResponse(stop.id);
-        if (cancelled) return;
-
-        setData(result.data);
-        setError(result.error);
-      } catch {
-        if (!cancelled) {
-          setData(null);
-          setError("Unable to load arrivals. Check your connection and try again.");
-        }
-      } finally {
-        if (!cancelled && showLoading) setLoading(false);
-      }
-    }
-
-    void load(true);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [stop.id]);
-
-  useEffect(() => {
-    if (data?.dataSource !== "live" || error) return;
-
-    let cancelled = false;
-
-    const interval = window.setInterval(() => {
-      void (async () => {
-        try {
-          const result = await loadStopArrivalsResponse(stop.id);
-          if (cancelled) return;
-          setData(result.data);
-          setError(result.error);
-        } catch {
-          if (!cancelled) {
-            setError("Unable to load arrivals. Check your connection and try again.");
-          }
-        }
-      })();
-    }, LIVE_REFRESH_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [data?.dataSource, error, stop.id]);
+  const data = arrivalsQuery.data;
+  const error =
+    data?.error ??
+    (arrivalsQuery.error instanceof Error
+      ? arrivalsQuery.error.message
+      : arrivalsQuery.isError
+        ? "Unable to load arrivals. Check your connection and try again."
+        : null);
 
   useEffect(() => {
     if (!data?.fetchedAt || error) return;
@@ -119,7 +57,7 @@ export function StopDetailScreen({ stop }: StopDetailScreenProps) {
 
   return (
     <div className="app-shell flex min-h-dvh flex-col bg-canvas-soft">
-      <StopDetailHeader stop={stop} />
+      <StopDetailHeader stop={stop} fromFavorites={fromFavorites} />
 
       <div className="stop-detail__scroll min-h-0 flex-1 overflow-y-auto bg-canvas-soft">
         <div className="stop-detail__refresh-bar sticky top-0 z-10 flex items-center gap-1 bg-canvas-soft px-4 py-1.5 text-xs">
@@ -129,7 +67,7 @@ export function StopDetailScreen({ stop }: StopDetailScreenProps) {
           </span>
         </div>
 
-        {loading ? (
+        {arrivalsQuery.isPending ? (
           <p className="bg-canvas py-8 text-center text-sm text-body">Loading arrivals…</p>
         ) : error ? (
           <p className="bg-canvas px-4 py-8 text-center text-sm text-body">{error}</p>
@@ -143,7 +81,11 @@ export function StopDetailScreen({ stop }: StopDetailScreenProps) {
             <ul className="divide-y divide-hairline bg-canvas">
               {(data?.arrivals ?? []).map((arrival) => (
                 <li key={arrival.id}>
-                  <StopArrivalItem stopId={stop.id} arrival={arrival} />
+                  <StopArrivalItem
+                    stopId={stop.id}
+                    arrival={arrival}
+                    trackingAvailable={data?.dataSource !== "scheduled"}
+                  />
                 </li>
               ))}
             </ul>

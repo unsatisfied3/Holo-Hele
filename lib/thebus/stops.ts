@@ -4,23 +4,23 @@ import type { StopLocation } from "@/types/transit";
 export const HONOLULU_STOPS: StopLocation[] = [
   {
     id: "1280",
-    name: "S Beretania St + Pali Hwy + Bishop St",
-    lat: 21.3018,
-    lng: -157.8519,
+    name: "Bishop St + Queen St",
+    lat: 21.307569,
+    lng: -157.862935,
     kind: "stop",
   },
   {
     id: "437",
-    name: "S King St + Punchbowl St",
-    lat: 21.3049,
-    lng: -157.8572,
+    name: "S Beretania St + Bishop St",
+    lat: 21.310404,
+    lng: -157.858507,
     kind: "stop",
   },
   {
     id: "45",
-    name: "Hotel St + Bishop St",
-    lat: 21.3094,
-    lng: -157.8601,
+    name: "S Beretania St + Punchbowl St",
+    lat: 21.307244,
+    lng: -157.856142,
     kind: "stop",
   },
   {
@@ -32,9 +32,9 @@ export const HONOLULU_STOPS: StopLocation[] = [
   },
   {
     id: "1619",
-    name: "Aloha Stadium Station",
-    lat: 21.3724,
-    lng: -157.9301,
+    name: "Makaikai St + Ainamakua Dr",
+    lat: 21.47062,
+    lng: -158.00275,
     kind: "station",
   },
 ];

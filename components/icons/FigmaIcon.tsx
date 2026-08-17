@@ -14,7 +14,6 @@ export function FigmaIcon({
   alt = "",
 }: FigmaIconProps) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={FIGMA_ICONS[name]}
       alt={alt}
@@ -82,6 +81,24 @@ export function ScheduleIcon({ className = "" }: { className?: string }) {
   );
 }
 
+/** Settings sliders — follows the same monochrome, tintable icon treatment. */
+export function SettingsIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path d="M4 6H9M15 6H20M4 12H13M19 12H20M4 18H7M13 18H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="10" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 /** Figma bus-stop sign icon used on nearby stop rows. */
 export function BusStopSignIcon() {
   return (
@@ -98,11 +115,38 @@ export function BusStopSignIcon() {
 export function RouteLineBadge({ route }: { route: string }) {
   return (
     <div
-      className="flex h-[29px] items-center gap-1 rounded-[4px] border border-b-[3px] border-ink px-1.5 py-1"
+      className="box-border flex h-[30px] min-w-[3.25rem] shrink-0 items-center justify-center gap-1 rounded-[4px] border border-b-[3px] border-ink px-1.5 py-1"
       aria-hidden="true"
     >
-      <FigmaIcon name="busRoute" size={14} className="h-[17px] w-[14px]" />
-      <span className="text-lg font-medium leading-none text-ink">{route}</span>
+      <FigmaIcon
+        name="busRoute"
+        size={14}
+        className="h-[17px] w-[14px] shrink-0"
+      />
+      <span className="whitespace-nowrap text-base font-semibold leading-none text-ink">
+        {route}
+      </span>
     </div>
+  );
+}
+
+/** Alert triangle used for service disruptions and rider notices. */
+export function AlertTriangleIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path d="M12 2.75 22 20.5H2L12 2.75Z" fill="currentColor" />
+      <path
+        d="M12 8V14M12 17.25H12.01"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

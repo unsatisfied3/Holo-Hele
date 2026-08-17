@@ -1,35 +1,53 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
-import { MapControls } from "@/components/map/MapControls";
+import { Link } from "@tanstack/react-router";
+import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import {
   createBusTrackingMarkerHtml,
+  createTrackingDirectionArrowHtml,
   createTrackingDestinationStopDotHtml,
   createTrackingIntermediateStopDotHtml,
+  createUserLocationMarkerHtml,
 } from "@/lib/figma-icons";
 import {
+  buildApproachPolyline,
+  buildRouteDirectionIndicator,
   buildRoutePolyline,
-  buildRouteStopMarkers,
 } from "@/lib/tracking/route-visualization";
-import type { StopLocation, TheBusArrival, VehicleLocation } from "@/types/transit";
+import type {
+  StopLocation,
+  TheBusArrival,
+  TrackingRouteStop,
+  VehicleLocation,
+} from "@/types/transit";
 
 interface TrackingMapInnerProps {
   stop: StopLocation;
   arrival: TheBusArrival;
   vehicleLocation: VehicleLocation | null;
-  stopsAway: number | null;
+  routeStops: TrackingRouteStop[];
+  userLocation?: [number, number];
 }
 
 function FitTrackingBounds({
   stop,
   vehicleLocation,
-  stopsAway,
+  routeStops,
 }: {
   stop: StopLocation;
   vehicleLocation: VehicleLocation | null;
-  stopsAway: number | null;
+  routeStops: TrackingRouteStop[];
 }) {
   const map = useMap();
 
@@ -41,19 +59,27 @@ function FitTrackingBounds({
       return;
     }
 
-    const routeMarkers =
-      stopsAway != null && stopsAway > 0
-        ? buildRouteStopMarkers(vehicleLocation, stop, stopsAway)
-        : [{ lat: stop.lat, lng: stop.lng, kind: "destination" as const }];
+    const leadInPoint: [number, number] = [
+      vehicleLocation.lat - (stop.lat - vehicleLocation.lat) * 0.45,
+      vehicleLocation.lng - (stop.lng - vehicleLocation.lng) * 0.45,
+    ];
 
     const bounds = L.latLngBounds([
       stopPoint,
       [vehicleLocation.lat, vehicleLocation.lng],
-      ...routeMarkers.map((marker) => [marker.lat, marker.lng] as [number, number]),
+      leadInPoint,
+      ...routeStops.map(
+        (routeStop) => [routeStop.lat, routeStop.lng] as [number, number],
+      ),
     ]);
 
-    map.fitBounds(bounds, { padding: [72, 72], maxZoom: 16, animate: true });
-  }, [map, stop, stopsAway, vehicleLocation]);
+    map.fitBounds(bounds, {
+      paddingTopLeft: [48, 88],
+      paddingBottomRight: [48, 220],
+      maxZoom: 16,
+      animate: true,
+    });
+  }, [map, routeStops, stop, vehicleLocation]);
 
   return null;
 }
@@ -64,12 +90,26 @@ function busEtaLabel(arrival: TheBusArrival): string {
   return arrival.stopTime;
 }
 
+function DismissStopSelection({ onDismiss }: { onDismiss: () => void }) {
+  useMapEvents({
+    click: onDismiss,
+  });
+  return null;
+}
+
 export function TrackingMapInner({
   stop,
   arrival,
   vehicleLocation,
-  stopsAway,
+  routeStops,
+  userLocation,
 }: TrackingMapInnerProps) {
+  const [selectedStop, setSelectedStop] = useState<{
+    arrivalId: string;
+    stopId: string;
+  } | null>(null);
+  const selectedStopId =
+    selectedStop?.arrivalId === arrival.id ? selectedStop.stopId : null;
   const center: [number, number] = vehicleLocation
     ? [
         (stop.lat + vehicleLocation.lat) / 2,
@@ -104,26 +144,73 @@ export function TrackingMapInner({
       L.divIcon({
         className: "",
         html: createBusTrackingMarkerHtml(busEtaLabel(arrival)),
-        iconSize: [52, 58],
-        iconAnchor: [26, 20],
+        iconSize: [58, 52],
+        iconAnchor: [22, 26],
       }),
     [arrival],
   );
 
-  const routeLine =
-    vehicleLocation != null && stopsAway != null && stopsAway > 0
-      ? buildRoutePolyline(vehicleLocation, stop, stopsAway)
-      : vehicleLocation != null
-        ? ([
-            [vehicleLocation.lat, vehicleLocation.lng],
-            [stop.lat, stop.lng],
-          ] as [number, number][])
-        : null;
+  const userLocationIcon = useMemo(
+    () =>
+      L.divIcon({
+        className: "tracking-user-location-marker",
+        html: createUserLocationMarkerHtml(),
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      }),
+    [],
+  );
 
-  const routeMarkers =
-    vehicleLocation != null && stopsAway != null && stopsAway > 0
-      ? buildRouteStopMarkers(vehicleLocation, stop, stopsAway)
-      : [{ lat: stop.lat, lng: stop.lng, kind: "destination" as const }];
+  const routeLine =
+    vehicleLocation != null
+      ? buildRoutePolyline(vehicleLocation, stop, routeStops)
+      : null;
+
+  const approachLine =
+    vehicleLocation != null
+      ? buildApproachPolyline(vehicleLocation, stop, routeStops)
+      : null;
+
+  const directionIndicator =
+    vehicleLocation != null
+      ? buildRouteDirectionIndicator(vehicleLocation, stop, routeStops)
+      : null;
+
+  const directionIcon = useMemo(
+    () =>
+      directionIndicator
+        ? L.divIcon({
+            className: "tracking-direction-arrow",
+            html: createTrackingDirectionArrowHtml(
+              directionIndicator.rotationDegrees,
+            ),
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+          })
+        : null,
+    [directionIndicator],
+  );
+
+  const visibleRouteStops =
+    routeStops.length > 0
+      ? routeStops
+      : [
+          {
+            ...stop,
+            sequence: 0,
+            markerKind: "destination" as const,
+          },
+        ];
+  const destinationIndex = visibleRouteStops.findIndex(
+    (routeStop) => routeStop.markerKind === "destination",
+  );
+  const routeStopsForInitialView =
+    destinationIndex >= 0
+      ? visibleRouteStops.slice(
+          0,
+          Math.min(destinationIndex + 2, visibleRouteStops.length),
+        )
+      : visibleRouteStops;
 
   return (
     <MapContainer
@@ -140,41 +227,108 @@ export function TrackingMapInner({
       <FitTrackingBounds
         stop={stop}
         vehicleLocation={vehicleLocation}
-        stopsAway={stopsAway}
+        routeStops={routeStopsForInitialView}
       />
-      <MapControls
-        center={center}
-        position="fixed"
-        className="tracking-map__controls"
-      />
+      <DismissStopSelection onDismiss={() => setSelectedStop(null)} />
 
       {routeLine ? (
         <Polyline
           positions={routeLine}
-          pathOptions={{ color: "#5e5a65", weight: 4, opacity: 0.9 }}
+          pathOptions={{
+            className: "tracking-route-line tracking-route-line--full",
+            color: "#0055a5",
+            weight: 4,
+            opacity: 1,
+          }}
         />
       ) : null}
 
-      {routeMarkers.map((marker, index) => (
+      {approachLine ? (
+        <Polyline
+          positions={approachLine}
+          pathOptions={{
+            className: "tracking-route-line tracking-route-line--approach",
+            color: "#78aef5",
+            weight: 4,
+            opacity: 1,
+          }}
+        />
+      ) : null}
+
+      {visibleRouteStops.map((routeStop) => (
         <Marker
-          key={`${marker.kind}-${index}`}
-          position={[marker.lat, marker.lng]}
-          icon={marker.kind === "destination" ? destinationIcon : intermediateIcon}
+          key={`${routeStop.id}-${routeStop.sequence}`}
+          position={[routeStop.lat, routeStop.lng]}
+          icon={
+            routeStop.markerKind === "destination"
+              ? destinationIcon
+              : intermediateIcon
+          }
+          title={`${routeStop.name}, stop ${routeStop.id}`}
+          zIndexOffset={routeStop.markerKind === "destination" ? 1200 : 200}
+          eventHandlers={{
+            click: (event) => {
+              L.DomEvent.stopPropagation(event.originalEvent);
+              setSelectedStop({
+                arrivalId: arrival.id,
+                stopId: routeStop.id,
+              });
+            },
+          }}
         >
-          {marker.kind === "destination" ? (
-            <Popup>
-              <strong>{stop.name}</strong>
-              <br />
-              Stop {stop.id}
-            </Popup>
+          {selectedStopId === routeStop.id ? (
+            <Tooltip
+              permanent
+              interactive
+              direction="left"
+              offset={[-12, 0]}
+              opacity={1}
+              className="tracking-stop-tooltip"
+            >
+              <Link
+                to="/stops/$id"
+                params={{ id: routeStop.id }}
+                className="tracking-stop-tooltip__link"
+              >
+                <span className="tracking-stop-tooltip__copy">
+                  <strong>{routeStop.name}</strong>
+                  <small>{routeStop.id}</small>
+                </span>
+                <span className="tracking-stop-tooltip__chevron" aria-hidden="true">
+                  ›
+                </span>
+              </Link>
+            </Tooltip>
           ) : null}
         </Marker>
       ))}
+
+      {directionIndicator && directionIcon ? (
+        <Marker
+          position={directionIndicator.position}
+          icon={directionIcon}
+          interactive={false}
+          zIndexOffset={1800}
+        />
+      ) : null}
+
+      {userLocation ? (
+        <Marker
+          position={userLocation}
+          icon={userLocationIcon}
+          title="Your location"
+          alt="Your location"
+          zIndexOffset={3000}
+        >
+          <Popup>You are here</Popup>
+        </Marker>
+      ) : null}
 
       {vehicleLocation ? (
         <Marker
           position={[vehicleLocation.lat, vehicleLocation.lng]}
           icon={vehicleIcon}
+          zIndexOffset={2200}
         >
           <Popup>
             Route {arrival.route} · {arrival.headsign}

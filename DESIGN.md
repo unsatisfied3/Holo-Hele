@@ -1,8 +1,8 @@
 # Holo Hele Design System
 
-**Version:** 1.3 (Home + Stop Detail + Route Interaction)  
+**Version:** 1.6 (Favorites flow)  
 **Figma reference:** `TheBus_V1` — Home expanded `1:568`, Stop Information `1:1735`, Route Interaction `1:1698`  
-**Code tokens:** `app/globals.css`
+**Code tokens:** `src/styles.css` (imports the canonical token definitions)
 
 This document is the **single source of truth** for Holo Hele UI. It merges the shipped home and stop detail pages with the Figma wireframes and **resolves known Figma inconsistencies** so designers and developers do not re-litigate them screen by screen.
 
@@ -24,9 +24,9 @@ When Figma and the app disagree, follow the **Resolution** column in [Figma inco
 
 Holo Hele is a **mobile-first Oʻahu transit app**. The home screen is a map with a draggable nearby-stops sheet — riders should scan stop names, route badges, and arrival times in seconds outdoors.
 
-- **Calm and flat** — hairline borders, no decorative shadows.
-- **Black + white + charcoal** — brand actions use `--primary` black; secondary text uses the charcoal scale.
-- **One accent only** — live arrival green (`--live`); nothing else competes for attention.
+- **Calm and clear** — hairline borders and elevation only where the map needs surface separation.
+- **Transit blue is the brand** — use it for primary actions, current navigation, route geometry, and selected states.
+- **Live green is semantic** — reserve it for real-time arrival status, never decoration.
 - **Text-first** — every map marker has a text equivalent in the sheet.
 - **Never fake live data** — when TheBus API is configured, show live data or an error; do not silently fall back to sample arrivals.
 
@@ -52,7 +52,7 @@ The shell simulates a phone frame on desktop; content is full-bleed inside it.
 
 ## Color tokens
 
-Defined in `:root` in `app/globals.css`.
+Defined in `:root` in `src/styles.css` and its imported token stylesheet.
 
 ### Brand
 
@@ -62,6 +62,7 @@ Defined in `:root` in `app/globals.css`.
 | On primary | `--on-primary` | `#ffffff` | Text/icons on black fills |
 | Ink | `--ink` | `#000000` | Headlines, primary labels, near-term scheduled times |
 | Live | `--live` | `#1a7f37` | Estimated arrivals ≤ 20 min, “Now” |
+| Transit route | `--transit-blue` | `#0055a5` | Tracking/directions route geometry and active map markers only |
 | Body | `--body` | `#5e5a65` (charcoal-800) | Secondary text, muted arrival times |
 
 ### Charcoal scale (from Figma, used app-wide)
@@ -84,11 +85,13 @@ Defined in `:root` in `app/globals.css`.
 | `--canvas` | white | Cards, sheet, search bar, map controls, stop header, arrival list |
 | `--canvas-muted` | charcoal-100 | Route arrival preview rows |
 | `--canvas-soft` | charcoal-300 | Stop detail page background, hover states, map fallback bg |
-| `--canvas-softer` | charcoal-200 | Bottom nav, View button fill, stop action buttons |
+| `--canvas-softer` | charcoal-200 | View button fill and stop action buttons |
 | `--hairline` / `--border` | `#e4e4e7` | All dividers and control borders |
 | `--surface-pressed` | charcoal-500 | Pressed/disabled fills |
 
-**Do not** reintroduce Figma’s `primary/blue-200` (`#eef4fc`) nav tint or TheBus blue (`#00418D`) on UI chrome — map markers and badges stay **black/white**.
+Transit blue identifies actions, routes, focus, and current navigation. Hover
+surfaces remain neutral gray (`--canvas-soft`); do not tint list rows or chips
+blue.
 
 ---
 
@@ -107,7 +110,7 @@ Figma mixes Inter and Roboto on nav labels and arrival times — **use Inter eve
 | Route headsign | 14px (`text-sm`) | 500 | snug | Preview / arrival row |
 | Arrival time | 14px (`text-sm`) | 600 | normal | “Now”, “8 min”, scheduled time |
 | Scheduled caption | 9px | 500 | tight | “Scheduled time” |
-| Nav label | 12px (`text-xs`) | 500 | normal | Map / Favorites / Help |
+| Nav label | 12px (`text-xs`) | 500 | normal | Map / Favorites / Settings |
 | Search placeholder | 14px (`text-sm`) | 400 | normal | “Where to?” |
 | Chip label | 14px (`text-sm`) | 500 | normal | Home / Work / Other |
 | Line tag | 12px (`text-xs`) | 400 | normal | Route numbers in Lines section |
@@ -162,7 +165,7 @@ Static assets live in **`public/icons/figma/`** via `FigmaIcon` and `lib/figma-i
 | `busRoute` | 14×17px | Route badge inside preview |
 | `chevronDown` | 16px | Sheet expand toggle |
 | `zoomIn`, `zoomOut`, `myLocation` | 24px | Map controls |
-| `mapNav`, `favorites`, `help` | 24px | Bottom nav |
+| `mapNav`, `favorites` + inline `SettingsIcon` | 24px | Bottom nav |
 | `arrowBack` | 24px | Stop detail back link |
 | `refresh` | 14px | Stop detail refresh line |
 | `schedule` | 20px | Stop detail Schedule action button |
@@ -203,7 +206,7 @@ Stack order (bottom → top):
 4. **Map controls** — z-index 400, right side above sheet  
 5. **Bottom nav** — inside `AppShell`, z-index 1100  
 
-Sheet expanded/collapsed state lives in `HomeScreen` and drives CSS variable `--sheet-height` so map controls track the sheet.
+Sheet expanded/collapsed and selected-stop states live in `HomeScreen` and drive CSS variable `--sheet-height` so map controls track the active sheet. Home opens in the compact, map-first state shown in the Figma reference.
 
 ### Map
 
@@ -211,30 +214,35 @@ Sheet expanded/collapsed state lives in `HomeScreen` and drives CSS variable `--
 |---------|------|
 | Tiles | CARTO Light (`light_all`) — neutral gray streets, not Figma static screenshot |
 | Default zoom | 15 |
-| User location | 14px black dot, 3px white border |
-| Stop markers | 36px black circle + bus icon; tap → popup with link to `/stops/[id]` |
+| User location | 14px brand-blue dot, 3px white border, soft blue halo |
+| Stop markers | 36px white circle with brand-blue border and bus icon; tap → selected-stop sheet |
 | Controls | Custom (Leaflet zoom disabled); see [Map controls](#map-controls) |
+
+Home uses the official active GTFS feed for nearby stop locations and scheduled
+services. When the TheBus API key is configured, the closest stops are enriched
+with live arrivals; scheduled times remain visually distinct from estimates.
 
 ### Search overlay
 
 | Element | Spec |
 |---------|------|
 | Position | `top: safe-area + 2.5rem`, horizontal `16px` padding |
-| Search bar height | **47px** |
+| Search bar height | **49px** |
 | Search bar radius | `--radius-pill` |
-| Search bar border | `1px hairline`, bg `--canvas` |
+| Search bar surface | `1px hairline`, bg `--canvas`, no shadow |
 | Chips | Row below search, `8px` gap, wrap allowed |
 
 ### Destination chips (`Chip`)
 
 | Property | Value |
 |----------|-------|
-| Height | 30px |
-| Padding | 8px horizontal |
+| Height | 32px |
+| Padding | 10px horizontal |
 | Radius | pill |
 | Border | hairline |
 | Background | canvas |
 | Icon + label gap | 8px |
+| Elevation | None; use a hairline border and subtle press animation |
 
 ### Nearby stops sheet
 
@@ -272,7 +280,7 @@ Figma’s collapsed frame only shows previews under the first stop; **the app sh
 | Title | Stop name, 14px medium |
 | Meta line 1 | `ID {id} • {n} min walk` — 12px body |
 | Meta line 2 | `Lines: {comma-separated}` — truncate with ellipsis after ~11 routes |
-| View | Link to `/stops/[id]`, 12px medium, bg `--canvas-softer`, hairline border, 4px radius |
+| Interaction | The full row is one keyboard-accessible link to `/stops/[id]`; “View” is its trailing visual affordance |
 
 **Route preview row (`RouteArrivalRow`):**
 
@@ -285,6 +293,19 @@ Figma’s collapsed frame only shows previews under the first stop; **the app sh
 | Divider | `divide-y divide-hairline` on list |
 
 **Footer timestamp:** When data is loaded, show “Updated {time}” in 12px mute text at bottom of sheet.
+
+### Selected-stop sheet
+
+Tapping a map marker replaces the nearby-stops sheet with the Figma-style stop summary (`Home Page-2.png`):
+
+- One header row: brand-blue stop ID badge beside the stop name
+- Service count on its own line below the header (`12 SERVICES` pattern)
+- Up to 12 routes in a **4×3 grid** of light-gray rounded cells; each cell contains a blue route badge and the next arrival time
+- 6px gutters between grid cells; compact, non-interactive cells are ~32px tall
+- Primary brand-blue **Arrivals** and outlined **Direction** buttons at the bottom
+- Keep 24px of vertical space between the service grid and action buttons
+- A visible handle button closes the summary and restores Nearby Stops
+- The persistent bottom navigation is hidden while this focused summary is open
 
 ### Map controls
 
@@ -303,14 +324,89 @@ Figma uses 2px radius and shadows on these — **use 8px + hairline, no shadow**
 | Property | Value |
 |----------|-------|
 | Height | ~56px + safe area |
-| Background | `--canvas-softer` (not Figma blue tint) |
+| Background | `--canvas` (white) |
 | Top border | hairline |
-| Items | 3 equal columns: Map, Favorites, Help |
+| Items | 3 equal columns: Map, Favorites, Settings |
 | Icon | 24px Figma asset |
 | Label | 12px medium |
-| Active state | canvas bg on item, ink text |
-| Inactive | body text, hover → canvas bg |
-| Visibility | Shown on `/home`, `/favorites`, `/help` only — **hidden on stop detail** |
+| Active state | brand-blue icon and text; no tinted tile |
+| Inactive | body text, hover → `--canvas-soft` |
+| Visibility | Shown on `/home`, `/favorites`, `/settings` only — **hidden on stop detail** |
+
+### Favorites
+
+Route: `/favorites`. Layout follows the Figma Flow 4 reference: centered title,
+pill search, working Buses/Stops tabs, and compact saved rows. Both saved stops
+and preview bus favorites are stored locally; preview favorites are seeded only
+when their storage key has never been initialized, so riders can still remove
+every item. The heart button removes an item, stop rows open arrivals, and bus
+rows open a route-filtered arrivals page. Schedule actions lead to a line chooser
+and the official GTFS daily schedule. Scheduled times are explicitly labeled and
+never presented as live data. Empty and no-search-match states link back to the
+map when appropriate.
+
+Favorites color and state treatment:
+
+- The active tab uses `--brand-blue-subtle` with `--brand-blue` text; inactive
+  tabs remain neutral.
+- Saved rows use compact circular `--brand-blue-subtle` icons with blue glyphs.
+- Every saved item shows a filled blue heart. The outline heart is reserved for
+  an unsaved state on detail pages.
+- Dividers begin after the leading icon, matching the Figma list rhythm.
+- Opening a saved stop carries its Favorites origin through stop and schedule
+  pages, so Back returns to the selected **Stops** tab instead of the map.
+- Keep the header and search surface flat; the app-wide no-shadow rule overrides
+  the Figma header elevation.
+
+Schedule pages use the official active GTFS daily departures for the selected
+stop and line. The line and direction are stated once in the schedule header;
+rows show only departure times to avoid repeating the same bus name. “Choose
+another line” and the “Today” or “Tomorrow” date control use the shared
+pale-blue action treatment with a softened blue outline and primary-blue
+content. When a route has no more arrivals today, its empty state links to the
+actual next-day GTFS schedule; the selected day remains active when changing
+lines.
+The bundled preview metadata for seeded favorite stop IDs mirrors the same
+official feed so names and coordinates remain consistent before API data loads.
+
+### Settings
+
+Route: `/settings`. Combines the app preferences with the Figma
+`More Information.png` structure:
+
+- Centered title, compact Holo Hele logo, and the real package version
+- **Preferences:** language and location. The location switch represents the
+  rider’s preference and stays on when device permission is blocked; show a
+  clear permission message while map screens continue using their fallback.
+- **Resources:** FAQ, fares and passes, videos, system map, and rider alerts
+- **TheBus:** phone, report, website, and rating links
+- **Legal:** terms and privacy
+
+Rows use 52–56px touch targets, hairline dividers, monochrome icons, neutral
+gray hover states, and blue chevrons. The persistent bottom navigation is white
+with a blue active state.
+
+### Rider alerts
+
+Route: `/alerts`. The Settings resource opens this in-app page instead of
+leaving Holo Hele. Alerts use a pale `--brand-blue-subtle` banner, softened
+`--brand-blue-border` dividers, a blue warning triangle, and text-first details
+for affected lines, stops, and rider guidance.
+Bus-detail alert banners remain flat with no bottom border, matching the Figma
+reference.
+Bus empty-state schedule links reuse the pale-blue action-button treatment
+instead of the black pill CTA.
+Back returns to the originating bus when an alert was opened from a bus banner;
+otherwise it returns to Settings.
+
+Until a production alert source is connected, demonstration disruptions live
+only in `lib/mock/service-alerts.ts`; presentation copy may mirror the intended
+production experience, but this module must be replaced before release.
+Affected favorite buses show the same compact warning state and link to the
+in-app alert page. Never modify real arrival times to imply a delay from demo
+alert data.
+The compact Favorites warning uses dark `--alert` amber for the icon and text
+on a light `--alert-subtle` yellow chip; the full alert banner remains pale blue.
 
 ---
 
@@ -324,30 +420,57 @@ Opened when a rider taps an arrival row on stop detail. Full-bleed map with over
 
 1. **Map** — full viewport, CARTO Light tiles  
 2. **Top overlay** — white bar, back arrow + centered **“Tracking”**  
-3. **Map controls** — right side, above bottom card (`.tracking-map__controls`)  
-4. **Bottom floating card** — 320px-wide card on a 375px frame (`27.5px` horizontal inset via `.tracking-summary`), `--radius-xs`, hairline border  
-5. **Stops away banner** — centered pill above card (e.g. “8 stops away”)
+3. **Bottom floating carousel** — 320px-wide cards on a 375px frame (`27.5px` horizontal inset via `.tracking-summary`), `--radius-md`, hairline border
+4. **Pagination** — interactive dots beneath the card when multiple live buses are trackable
 
 ### Map markers (canonical)
 
 | Element | Spec |
 |---------|------|
-| Route segment | `--body` polyline through intermediate stop positions (until GTFS shape is wired) |
-| Intermediate stops | 12px black dot, white ring — spaced along route |
-| Destination stop | 18px black dot, white ring |
-| Bus | 40px black circle, white bus icon, **ETA pill** below (e.g. “2 min”) |
+| Full route | Dark `--transit-blue` polyline from the active vehicle through the remaining known trip stops |
+| Approach segment | Light-blue overlay from the active vehicle through upcoming stops to the rider’s selected stop |
+| Direction arrow | Blue arrow offset 18px beside the route near the selected stop; points toward the next trip stop, or along the final approach when no later stop is available |
+| Intermediate stops | 12px white dot, blue ring — sourced from the active trip’s GTFS sequence |
+| Destination stop | 18px white dot with a dark-blue ring, distinct from the rider’s filled location dot |
+| User location | 28px fixed-size blue dot with white ring and pale halo; shown only when location access is enabled and layered above route and stop markers at every zoom |
+| Stop callout | Hidden by default; selecting any route stop reveals its name, ID, and a link to stop detail |
+| Bus | 44px white circle, blue bus icon, **blue ETA pill** (e.g. “2 min”) |
 | Unavailable GPS | Banner under header; map centers on stop |
+
+The server indexes TheBus’s official active GTFS feed by trip. Live tracking
+never substitutes synthetic named stops: when GTFS is unavailable, the direct
+vehicle-to-destination line remains and unknown intermediate stops are omitted.
+Mock mode uses separate, explicit stop-sequence fixtures.
 
 ### Bottom card
 
 | Element | Spec |
 |---------|------|
-| Stops away | Banner above card — `{n} stops away` or `Arriving at your stop` |
-| Travel time | `Travel Time: {n} min` or `Arriving now` — 12px medium body |
 | Route row | Route badge · headsign · stop name · `ArrivalTimeDisplay` |
-| Page dots | 4 dots below card (visual only for v1 — carousel deferred) |
+| Status footer | Clock icon + status. Exact sequence and >2 stops: `Stops away: {n}`; within 2 stops or ETA-only: `Arrives in {n} min`; zero: `Arriving now` |
+| Swipe | Native horizontal scroll snap; settling on a card updates the tracking URL and map |
+| Page dots | One accessible button per available live bus; hidden when only one bus is trackable |
 
-Figma’s Route Interaction frame also shows multi-route carousel dots; only the first panel is implemented until directions data exists.
+## Search and trip planning
+
+The client-only preview flow follows `Search.png`, `Results.png`,
+`Suggested Routes.png`, `Directions.png`, and `Live Direction 1.png`.
+
+- `/search` filters categorized buses, stops, and places; an empty query shows
+  saved stops and recent places.
+- `/routes/[routeId]` opens a map-led route overview with route identity, the
+  official GTFS shape, every scheduled stop, and a vertically connected stop
+  sequence. The Hawaiʻi Kai example uses Route 1L and labels GTFS times as
+  scheduled; live estimates remain distinct and require the TheBus AppID.
+- Route-map endpoints remain visible at every zoom. Intermediate stop markers
+  are compact 8px hollow circles and appear at zoom 11+, keeping the full-route
+  view readable while preserving every GTFS stop when riders inspect an area.
+- `/plan?destination=...` shows recommended and alternative sample journeys.
+- `/directions/[journeyId]` shows the map and full itinerary.
+- `/live-directions/[journeyId]` shows the active instruction card.
+
+Journey options and itinerary timing are clearly labeled simulated mock data
+until a production directions source is connected.
 
 ---
 
@@ -370,7 +493,7 @@ Full-height layout without bottom nav. Page background `--canvas-soft`; list and
 | Element | Spec |
 |---------|------|
 | Padding | `px-4`, top safe-area + 12px |
-| Back | Link to `/home`, 24px `arrowBack`, touch target 40×24px (`w-6`) |
+| Back | Context-aware link: `/favorites?tab=stops` when opened from saved stops, otherwise `/home`; 24px `arrowBack`, touch target 40×24px (`w-6`) |
 | Title | “Stop”, centered, 16px semibold |
 | Spacer | `w-6` right balance |
 | Divider | `border-b border-hairline` below nav row |
@@ -390,10 +513,10 @@ Full-height layout without bottom nav. Page background `--canvas-soft`; list and
 |--------|-------|
 | Schedule | Icon + “Schedule” label, `px-2`, gap 4px |
 | Place | Icon only, `aria-label="Show stop on map"` |
-| Favorite | Icon only, `aria-label="Save to favorites"` |
-| Shared | `rounded-xs`, `border-charcoal-600`, `bg-canvas-softer`, `p-2`, 20px icons |
+| Favorite | Icon only, toggles `aria-label` and `aria-pressed`; selected state uses primary fill |
+| Shared | `rounded-xs`, soft `--brand-blue-border` outline, brand-blue text/icons, `bg-brand-blue-subtle`, `p-2`, 20px icons; hover uses `bg-brand-blue-soft` |
 
-(Place and Favorite are visual placeholders — not wired yet.)
+(Place remains a visual placeholder. Favorite is persisted locally.)
 
 ### Refresh bar
 
@@ -499,7 +622,7 @@ When updating Figma, align frames to this table — not the other way around.
 | Lines tags | `LineTags` | `components/stops/LineTags.tsx` |
 | Map | `TransitMap`, `MapControls` | `components/map/` |
 | Icons | `FigmaIcon`, `LiveSignalIcon`, `ScheduleIcon`, badges | `components/icons/FigmaIcon.tsx` |
-| Tokens | CSS variables | `app/globals.css` |
+| Tokens | CSS variables | `src/styles.css` |
 
 ---
 
@@ -535,3 +658,6 @@ When updating Figma, align frames to this table — not the other way around.
 | 2026-07-17 | v1.1 — Full stop detail spec; arrival icon tone rules (`LiveSignalIcon` / `ScheduleIcon`); map controls track sheet; removed mock banner; live refresh + sticky refresh bar; `px-4` alignment |
 | 2026-07-17 | v1.2 — Route Interaction tracking screen (`1:1698`); full-bleed map, floating card, route line + ETA bus marker |
 | 2026-07-17 | v1.3 — Route Interaction Figma alignment: 320px card inset, `--radius-xs`, stops-away banner, route stop dots (12px / 18px) |
+| 2026-07-17 | v1.4 — GTFS-backed route stops, click-only stop callouts, swipeable bus carousel, dynamic distance wording, full-row Home links, and combined Settings / More Information structure |
+| 2026-07-17 | v1.5 — Restored compact tracking pagination, neutral-gray hover states, and a white persistent bottom navigation |
+| 2026-08-14 | v1.6 — Completed Favorites buses/stops tabs, locally persisted preview favorites, bus detail, line selection, and official GTFS daily schedules |

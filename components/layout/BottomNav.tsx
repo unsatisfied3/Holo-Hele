@@ -1,19 +1,20 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { FigmaIcon } from "@/components/icons/FigmaIcon";
+import { Link, useLocation } from "@tanstack/react-router";
+import { FigmaIcon, SettingsIcon } from "@/components/icons/FigmaIcon";
 import type { FigmaIconName } from "@/lib/figma-icons";
 import { cn } from "@/lib/utils";
 
-const tabs: { href: string; label: string; icon: FigmaIconName }[] = [
+const tabs: {
+  href: string;
+  label: string;
+  icon: FigmaIconName | "settings";
+}[] = [
   { href: "/home", label: "Map", icon: "mapNav" },
   { href: "/favorites", label: "Favorites", icon: "favorites" },
-  { href: "/help", label: "Help", icon: "help" },
+  { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const showNav = tabs.some((tab) => tab.href === pathname);
 
   if (!showNav) return null;
@@ -21,7 +22,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="relative z-[1100] shrink-0 border-t border-hairline bg-canvas-softer pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1"
+      className="relative z-[1100] shrink-0 border-t border-hairline bg-canvas pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1"
     >
       <div className="grid grid-cols-3 px-2">
         {tabs.map((tab) => {
@@ -30,14 +31,24 @@ export function BottomNav() {
           return (
             <Link
               key={tab.href}
-              href={tab.href}
+              to={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                active ? "bg-canvas text-ink" : "text-body hover:bg-canvas hover:text-ink",
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transit-blue",
+                active
+                  ? "text-transit-blue"
+                  : "text-body hover:bg-canvas-soft hover:text-ink",
               )}
             >
-              <FigmaIcon name={tab.icon} size={24} className="h-6 w-6" />
+              {tab.icon === "settings" ? (
+                <SettingsIcon className="h-6 w-6" />
+              ) : (
+                <FigmaIcon
+                  name={tab.icon}
+                  size={24}
+                  className={cn("h-6 w-6", active && "icon-transit-blue")}
+                />
+              )}
               {tab.label}
             </Link>
           );

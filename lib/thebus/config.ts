@@ -1,7 +1,7 @@
 /** True when a real TheBus API key is configured on the server. */
 export function isTheBusApiKeyConfigured(): boolean {
   const key = process.env.THEBUS_API_KEY?.trim();
-  return Boolean(key);
+  return Boolean(key && key !== "PASTE_KEY_HERE");
 }
 
 export function getTheBusApiKey(): string | undefined {

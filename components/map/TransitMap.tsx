@@ -1,17 +1,19 @@
-"use client";
-
 import { useEffect } from "react";
 import L from "leaflet";
-import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { MapControls } from "@/components/map/MapControls";
-import { createBusStopMarkerHtml } from "@/lib/figma-icons";
+import {
+  createBusStopMarkerHtml,
+  createUserLocationMarkerHtml,
+} from "@/lib/figma-icons";
 import type { NearbyStopResult } from "@/types/transit";
 
 interface TransitMapProps {
   center: [number, number];
   stops: NearbyStopResult[];
+  selectedStopId?: string;
   userLocation?: [number, number];
+  onStopSelect?: (stop: NearbyStopResult) => void;
 }
 
 function RecenterMap({ center }: { center: [number, number] }) {
@@ -25,20 +27,33 @@ function RecenterMap({ center }: { center: [number, number] }) {
 }
 
 const userIcon = L.divIcon({
-  className: "",
-  html: `<div style="width:14px;height:14px;border-radius:999px;background:#000;border:3px solid #fff"></div>`,
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  className: "home-user-location-marker",
+  html: createUserLocationMarkerHtml(),
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
 });
 
 const stopIcon = L.divIcon({
-  className: "",
+  className: "map-stop-marker",
   html: createBusStopMarkerHtml(),
   iconSize: [36, 36],
   iconAnchor: [18, 18],
 });
 
-export function TransitMap({ center, stops, userLocation }: TransitMapProps) {
+const selectedStopIcon = L.divIcon({
+  className: "map-stop-marker map-stop-marker--selected",
+  html: createBusStopMarkerHtml(true),
+  iconSize: [52, 52],
+  iconAnchor: [26, 26],
+});
+
+export function TransitMap({
+  center,
+  stops,
+  selectedStopId,
+  userLocation,
+  onStopSelect,
+}: TransitMapProps) {
   return (
     <MapContainer
       center={center}
@@ -55,21 +70,27 @@ export function TransitMap({ center, stops, userLocation }: TransitMapProps) {
       <MapControls center={center} userLocation={userLocation} />
 
       {userLocation ? (
-        <Marker position={userLocation} icon={userIcon}>
+        <Marker
+          position={userLocation}
+          icon={userIcon}
+          title="Your location"
+          alt="Your location"
+          zIndexOffset={3000}
+        >
           <Popup>You are here</Popup>
         </Marker>
       ) : null}
 
-      {stops.map(({ stop }) => (
-        <Marker key={stop.id} position={[stop.lat, stop.lng]} icon={stopIcon}>
-          <Popup>
-            <strong>{stop.name}</strong>
-            <br />
-            Stop {stop.id}
-            <br />
-            <Link href={`/stops/${stop.id}`}>View stop</Link>
-          </Popup>
-        </Marker>
+      {stops.map((stopResult) => (
+        <Marker
+          key={stopResult.stop.id}
+          position={[stopResult.stop.lat, stopResult.stop.lng]}
+          title={`${stopResult.stop.name}, stop ${stopResult.stop.id}`}
+          alt={`Bus stop ${stopResult.stop.name}`}
+          icon={stopResult.stop.id === selectedStopId ? selectedStopIcon : stopIcon}
+          zIndexOffset={stopResult.stop.id === selectedStopId ? 1000 : 0}
+          eventHandlers={{ click: () => onStopSelect?.(stopResult) }}
+        />
       ))}
     </MapContainer>
   );

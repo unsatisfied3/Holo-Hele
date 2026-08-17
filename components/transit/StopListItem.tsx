@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { BusStopSignIcon } from "@/components/icons/FigmaIcon";
 import type { NearbyStopResult } from "@/types/transit";
 
@@ -16,7 +16,12 @@ export function StopListItem({ stopResult }: StopListItemProps) {
   const { stop, walkMinutes, lines } = stopResult;
 
   return (
-    <article className="flex h-[94px] items-center gap-3 bg-canvas px-4 py-2.5">
+    <Link
+      to="/stops/$id"
+      params={{ id: stop.id }}
+      aria-label={`View stop ${stop.name}`}
+      className="group flex h-[94px] items-center gap-3 bg-canvas px-4 py-2.5 transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-transit-blue"
+    >
       <div className="w-11 shrink-0 pl-1">
         <BusStopSignIcon />
       </div>
@@ -35,12 +40,12 @@ export function StopListItem({ stopResult }: StopListItemProps) {
         ) : null}
       </div>
 
-      <Link
-        href={`/stops/${stop.id}`}
-        className="shrink-0 rounded-[var(--radius-xs)] border border-hairline bg-canvas-softer px-2 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-pressed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      <span
+        aria-hidden="true"
+        className="shrink-0 rounded-[var(--radius-xs)] border border-hairline bg-canvas-softer px-2 py-2 text-xs font-medium text-ink transition-colors group-hover:bg-canvas"
       >
         View
-      </Link>
-    </article>
+      </span>
+    </Link>
   );
 }

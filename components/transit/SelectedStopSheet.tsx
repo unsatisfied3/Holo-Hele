@@ -1,0 +1,100 @@
+import { Link } from "@tanstack/react-router";
+
+import type { NearbyStopResult, TheBusArrival } from "@/types/transit";
+
+function formatRouteTime(arrival: TheBusArrival | undefined): string {
+  if (!arrival) return "—";
+  if (!arrival.estimated) return arrival.stopTime;
+  if (arrival.minutesUntil == null) return arrival.stopTime;
+  if (arrival.minutesUntil === 0) return "Now";
+  return `${arrival.minutesUntil} min`;
+}
+
+export function SelectedStopSheet({
+  stopResult,
+  onClose,
+}: {
+  stopResult: NearbyStopResult;
+  onClose: () => void;
+}) {
+  const { stop, lines, arrivals } = stopResult;
+  const visibleLines = lines.slice(0, 12);
+
+  return (
+    <section
+      aria-label={`Selected stop ${stop.name}`}
+      className="home-screen__sheet home-screen__selected-stop absolute inset-x-0 bottom-0 z-[1000] overflow-x-hidden overflow-y-auto rounded-t-[var(--radius-xl)] border-t border-hairline bg-canvas"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close stop details"
+        className="flex h-6 w-full items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-transit-blue"
+      >
+        <span className="h-1 w-8 rounded-full bg-charcoal-500" />
+      </button>
+
+      <div className="px-4 pb-4">
+        <div className="flex items-start gap-2">
+          <span className="shrink-0 rounded-[2px] bg-brand-blue px-1 py-0.5 text-sm font-normal leading-none text-on-primary">
+            {stop.id}
+          </span>
+          <h2 className="min-w-0 flex-1 text-base font-bold leading-snug text-ink">
+            {stop.name}
+          </h2>
+        </div>
+
+        <p className="mt-[10px] text-xs font-normal uppercase tracking-[0.02em] text-mute">
+          {lines.length} services
+        </p>
+
+        <ul className="selected-stop-sheet__grid grid grid-cols-4 gap-1.5">
+          {visibleLines.map((line) => {
+            const arrival = arrivals.find((item) => item.route === line);
+            const routeTime = formatRouteTime(arrival);
+            const isArrivingNow = arrival?.estimated && arrival.minutesUntil === 0;
+            return (
+              <li
+                key={line}
+                aria-label={`Route ${line}, ${arrival?.estimated ? "arriving" : "scheduled"} ${routeTime}`}
+                className="flex min-h-8 min-w-0 items-center gap-1 rounded-[2px] bg-canvas-softer p-1"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-[2px] bg-brand-blue px-1 text-[0.8125rem] font-bold leading-none text-on-primary"
+                >
+                  {line}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`min-w-0 truncate text-[0.6875rem] ${
+                    isArrivingNow ? "font-bold text-live" : "font-normal text-ink"
+                  }`}
+                >
+                  {routeTime}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Link
+            to="/stops/$id"
+            params={{ id: stop.id }}
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-xs)] bg-brand-blue px-3 text-sm font-bold text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transit-blue"
+          >
+            Arrivals
+          </Link>
+          <Link
+            to="/plan"
+            search={{ destination: stop.name }}
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue bg-canvas px-3 text-sm font-normal text-brand-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transit-blue"
+          >
+            Direction
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}

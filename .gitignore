@@ -12,13 +12,14 @@
 
 # testing
 /coverage
-
-# next.js
-/.next/
-/out/
+/playwright-report
+/test-results
 
 # production
+/.next/
 /build
+/dist
+/src-tauri/target
 
 # misc
 .DS_Store
@@ -32,9 +33,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-
-# vercel
-.vercel
+!.env.example
 
 # typescript
 *.tsbuildinfo

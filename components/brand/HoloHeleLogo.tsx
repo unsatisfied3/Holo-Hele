@@ -1,12 +1,43 @@
-export function HoloHeleLogo() {
+const BRAND_BLUE = "#00418d";
+
+const logoSrc = "/brand/holo-hele-logo.png";
+
+export function HoloHeleLogo({
+  variant = "hero",
+}: {
+  variant?: "hero" | "compact";
+}) {
+  if (variant === "compact") {
+    return (
+      <img
+        alt="Holo Hele"
+        className="mx-auto h-16 w-auto"
+        decoding="async"
+        draggable={false}
+        height={82}
+        src={logoSrc}
+        width={87}
+      />
+    );
+  }
+
   return (
-    <div className="text-center">
-      <div className="inline-grid grid-cols-[auto_auto] items-start gap-x-3 text-left">
-        <span className="text-5xl font-bold tracking-tight text-ink">Ho</span>
-        <span className="pt-8 text-5xl font-bold tracking-tight text-ink">Hele</span>
-        <span className="col-span-2 mx-auto mt-1 h-8 w-px bg-ink/20" aria-hidden="true" />
-      </div>
-      <p className="mt-4 text-lg font-medium text-body">Oʻahu&apos;s Transit App</p>
+    <div className="flex flex-col items-center gap-5 text-center">
+      <img
+        alt="Holo Hele"
+        className="h-[80px] w-auto"
+        decoding="async"
+        draggable={false}
+        height={82}
+        src={logoSrc}
+        width={87}
+      />
+      <p
+        className="text-base font-medium leading-normal"
+        style={{ color: BRAND_BLUE }}
+      >
+        Oʻahu&apos;s Transit App
+      </p>
     </div>
   );
 }
