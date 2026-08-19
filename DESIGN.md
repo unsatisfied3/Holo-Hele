@@ -1,6 +1,6 @@
 # Holo Hele Design System
 
-**Version:** 1.6 (Favorites flow)  
+**Version:** 1.9 (Saved disruption examples)
 **Figma reference:** `TheBus_V1` — Home expanded `1:568`, Stop Information `1:1735`, Route Interaction `1:1698`  
 **Code tokens:** `src/styles.css` (imports the canonical token definitions)
 
@@ -62,6 +62,8 @@ Defined in `:root` in `src/styles.css` and its imported token stylesheet.
 | On primary | `--on-primary` | `#ffffff` | Text/icons on black fills |
 | Ink | `--ink` | `#000000` | Headlines, primary labels, near-term scheduled times |
 | Live | `--live` | `#1a7f37` | Estimated arrivals ≤ 20 min, “Now” |
+| Detour | `--alert` | `#765000` | Detour icons and labels on `--alert-subtle` yellow |
+| Closure | `--closure` | `#9f1239` | Stop-closure icons and labels on `--closure-subtle` red |
 | Transit route | `--transit-blue` | `#0055a5` | Tracking/directions route geometry and active map markers only |
 | Body | `--body` | `#5e5a65` (charcoal-800) | Secondary text, muted arrival times |
 
@@ -352,6 +354,15 @@ Favorites color and state treatment:
 - Saved rows use compact circular `--brand-blue-subtle` icons with blue glyphs.
 - Every saved item shows a filled blue heart. The outline heart is reserved for
   an unsaved state on detail pages.
+- Two saved stop examples may retain disruption treatments for portfolio
+  demonstration. They use the matching official notice while it remains active
+  and switch to a clearly labeled demo fallback afterward. They stay inside the
+  normal Stops list with no separate section blade. The Buses list contains only
+  actual saved bus definitions; it does not turn affected route IDs into buses.
+- Opening either saved disruption example shows the standard semantic alert
+  blade directly below the Stop navigation bar and above the stop name/actions,
+  matching the Route 1L hierarchy. Its View action opens that stop's specific
+  demo explanation and returns to the originating stop.
 - Dividers begin after the leading icon, matching the Figma list rhythm.
 - Opening a saved stop carries its Favorites origin through stop and schedule
   pages, so Back returns to the selected **Stops** tab instead of the map.
@@ -391,27 +402,51 @@ with a blue active state.
 ### Rider alerts
 
 Route: `/alerts`. The Settings resource opens this in-app page instead of
-leaving Holo Hele. Alerts use a pale `--brand-blue-subtle` banner, softened
-`--brand-blue-border` dividers, a blue warning triangle, and text-first details
-for affected lines, stops, and rider guidance.
+leaving Holo Hele. Detours and reroutes use dark `--alert` amber on
+`--alert-subtle` yellow. Notices that explicitly say service is closed,
+suspended, or unavailable use dark `--closure` red on `--closure-subtle` red,
+even when TheBus categorizes them as Weather, Road Work, or another cause.
+Other notices retain the restrained brand-blue treatment.
+Details remain text-first for affected lines, stops, and rider guidance. The
+Affected Lines and Affected Stops headings share the same 12px uppercase,
+semibold body-color style; route badges and stop text remain visually distinct.
 Bus-detail alert banners remain flat with no bottom border, matching the Figma
 reference.
 Bus empty-state schedule links reuse the pale-blue action-button treatment
 instead of the black pill CTA.
-Back returns to the originating bus when an alert was opened from a bus banner;
-otherwise it returns to Settings.
+Banner View actions open `/alerts/[alertId]` for only the selected notice.
+Back returns to the originating bus, stop, or route when context is available;
+otherwise it returns to the Rider Alerts list.
 
 Current notices come from the official TheBus Service Disruption page through
 the Bun API and refresh at a five-minute cadence. Loading, empty, stale, and
 unavailable states remain inside the alerts surface and never block other
-transit features. Live notices are matched to routes by exact normalized IDs
-and to stops only when an explicit official stop number is available.
+transit features. Route pages use exact normalized route IDs. A bus favorite or
+bus detail alert must match both its exact route and saved stop; a whole-stop
+closure with no route list affects every bus at that stop. Stop alerts require
+an explicit official stop number and say whether the entire stop is closed or
+only the named routes are temporarily skipping that stop. Route-specific copy
+uses “Route 1L is temporarily skipping this stop.” or the plural equivalent;
+the curated weather example uses “Weather is affecting Route 65 service near
+this stop.”
 Demonstration disruptions remain isolated in `lib/mock/service-alerts.ts` and
-are visibly labeled as portfolio scenarios. Affected favorite buses and stops
-show the same compact warning state and link to the in-app alert page. Never
-modify real arrival times to imply a delay from any alert data.
-The compact Favorites warning uses dark `--alert` amber for the icon and text
-on a light `--alert-subtle` yellow chip; the full alert banner remains pale blue.
+never enter the live API response. During portfolio simulation they use the
+same alert presentation as current disruptions, without visible demo markers.
+Affected favorite buses and stops show the same compact warning state and link
+to the in-app alert page. Never modify real arrival times to imply a delay from
+any alert data.
+When a demo query is active, its selected scenario appears before the live
+Service Disruptions section so the requested Route 1L or Stop 437 example is
+immediately visible.
+The seeded Stop 437 favorite and its detail page surface a route-specific
+skipped-stop scenario when no live alert exists: Route 1L temporarily does not
+serve Stop 437, but the stop remains open to other routes. It is modeled as
+`stop-skipped`, not a whole-stop closure.
+Compact Favorites warnings, banners, and detail headers use the same semantic
+yellow detour or red closure treatment.
+Favorites uses terse impact labels—`STOP SKIPPED · 1L`, `STOP SKIPPED · 3, 7`,
+and `WEATHER DISRUPTION · 65`—while stop banners and alert details use complete
+rider-facing sentences.
 
 ---
 
@@ -666,3 +701,7 @@ When updating Figma, align frames to this table — not the other way around.
 | 2026-07-17 | v1.4 — GTFS-backed route stops, click-only stop callouts, swipeable bus carousel, dynamic distance wording, full-row Home links, and combined Settings / More Information structure |
 | 2026-07-17 | v1.5 — Restored compact tracking pagination, neutral-gray hover states, and a white persistent bottom navigation |
 | 2026-08-14 | v1.6 — Completed Favorites buses/stops tabs, locally persisted preview favorites, bus detail, line selection, and official GTFS daily schedules |
+| 2026-08-16 | v1.7 — Added live Service Disruption states, exact contextual alert matching, visibly separate demo scenarios, and opt-in service-notification controls |
+| 2026-08-16 | v1.8 — Required route-plus-stop matching for bus alerts, clarified whole versus route-specific stop closures, added semantic yellow/red alert colors, and introduced single-alert detail pages |
+| 2026-08-17 | v1.9 — Added two persistent saved-stop disruption examples with live-notice precedence and labeled demo fallbacks; kept route-only alert entries out of Buses |
+| 2026-08-18 | v1.9 — Extended the Stop 1712 and Stop 1016 demo states to top-positioned stop-detail alert blades with specific View explanations |

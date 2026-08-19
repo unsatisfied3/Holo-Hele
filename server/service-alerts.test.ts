@@ -116,8 +116,18 @@ describe("service alert fetch and cache", () => {
       fetcher: async () => new Response("<html>Unexpected page</html>"),
       now: () => 1_000,
     });
+    const unparsedEntries = createServiceAlertService({
+      fetcher: async () =>
+        new Response(`
+          <h1>Service Disruption</h1>
+          <p>August 16, 2026 - Incomplete entry</p>
+          <p>Route(s) 1L.</p>
+        `),
+      now: () => 1_000,
+    });
 
     expect((await unavailable()).status).toBe("unavailable");
     expect((await changedMarkup()).status).toBe("unavailable");
+    expect((await unparsedEntries()).status).toBe("unavailable");
   });
 });

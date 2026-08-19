@@ -2,21 +2,18 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import {
-  AlertTriangleIcon,
-  FigmaIcon,
-  RouteLineBadge,
-} from "@/components/icons/FigmaIcon";
+import { ServiceAlertDetails } from "@/components/alerts/ServiceAlertDetails";
+import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { fetchServiceAlerts } from "@/lib/api/transit";
 import {
   getDemoAlert,
+  parseDemoAlertScenario,
   type DemoAlertScenario,
 } from "@/lib/mock/service-alerts";
 import {
   SERVICE_ALERT_REFRESH_MS,
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
-import { cn } from "@/lib/utils";
 import type { TransitAlert } from "@/types/transit";
 
 interface AlertsSearch {
@@ -27,19 +24,13 @@ interface AlertsSearch {
   demo?: DemoAlertScenario;
 }
 
-function parseDemoScenario(value: unknown): DemoAlertScenario | undefined {
-  return value === "route-1l" || value === "stop-437" || value === "system-wide"
-    ? value
-    : undefined;
-}
-
 export const Route = createFileRoute("/alerts")({
   validateSearch: (search: Record<string, unknown>): AlertsSearch => ({
     alert: typeof search.alert === "string" ? search.alert : undefined,
     bus: typeof search.bus === "string" ? search.bus : undefined,
     stop: typeof search.stop === "string" ? search.stop : undefined,
     routePage: typeof search.routePage === "string" ? search.routePage : undefined,
-    demo: parseDemoScenario(search.demo),
+    demo: parseDemoAlertScenario(search.demo),
   }),
   component: RiderAlertsPage,
 });
@@ -70,7 +61,16 @@ function RiderAlertsPage() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-canvas-soft">
-        <section aria-labelledby="disruptions-heading" className="bg-canvas px-4 py-5">
+        {demoAlert ? (
+          <section aria-label="Selected service alert" className="bg-canvas px-4 py-5">
+            <AlertList alerts={[demoAlert]} selectedId={search.alert ?? demoAlert.id} />
+          </section>
+        ) : null}
+
+        <section
+          aria-labelledby="disruptions-heading"
+          className={`${demoAlert ? "mt-2 " : ""}bg-canvas px-4 py-5`}
+        >
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="disruptions-heading" className="text-lg font-semibold text-ink">
               Service disruptions
@@ -125,19 +125,6 @@ function RiderAlertsPage() {
           )}
         </section>
 
-        {demoAlert ? (
-          <section aria-labelledby="demo-heading" className="mt-2 bg-canvas px-4 py-5">
-            <div>
-              <h2 id="demo-heading" className="text-lg font-semibold text-ink">
-                Demo scenario
-              </h2>
-              <p className="mt-1 text-xs leading-relaxed text-body">
-                Portfolio preview only — this is not a current TheBus notice.
-              </p>
-            </div>
-            <AlertList alerts={[demoAlert]} selectedId={search.alert ?? demoAlert.id} />
-          </section>
-        ) : null}
       </div>
     </main>
   );
@@ -203,65 +190,5 @@ function AlertList({
 }
 
 function AlertCard({ alert, selected }: { alert: TransitAlert; selected: boolean }) {
-  return (
-    <article
-      id={alert.id}
-      className={cn(
-        "overflow-hidden rounded-[var(--radius-md)] border bg-canvas",
-        selected ? "border-brand-blue-border" : "border-hairline",
-      )}
-    >
-      <div className="flex items-start gap-3 bg-brand-blue-subtle px-4 py-4">
-        <AlertTriangleIcon className="mt-0.5 h-6 w-6 shrink-0 text-brand-blue" />
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-ink">{alert.title}</h3>
-          <p className="mt-1 text-xs font-medium text-brand-blue">
-            {formatAlertStatus(alert)}
-          </p>
-        </div>
-      </div>
-
-      <div className="px-4 py-4">
-        <p className="text-sm leading-relaxed text-body">{alert.description}</p>
-
-        {alert.systemWide ? (
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-alert">
-            System-wide notice
-          </p>
-        ) : alert.affectedRoutes.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-body">
-              Affected lines
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {alert.affectedRoutes.map((route) => (
-                <RouteLineBadge key={route} route={route} />
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {alert.affectedStops.length > 0 ? (
-          <div className="mt-4 border-t border-hairline pt-4">
-            <h4 className="text-sm font-semibold text-ink">
-              Affected {alert.affectedStops.length === 1 ? "stop" : "stops"}
-            </h4>
-            <p className="mt-1 text-sm text-body">
-              {alert.affectedStops.map((stop) => `Stop ${stop}`).join(", ")}
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function formatAlertStatus(alert: TransitAlert): string {
-  if (alert.source === "holohele-demo") return "Demo scenario";
-  if (!alert.startTime) return "Current TheBus notice";
-  return `Posted ${new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(alert.startTime))}`;
+  return <ServiceAlertDetails alert={alert} emphasized={selected} />;
 }

@@ -15,7 +15,8 @@ import { fetchServiceAlerts, fetchStopArrivals } from "@/lib/api/transit";
 import { getFavoriteBusById } from "@/lib/mock/favorites";
 import { getServiceAlertForBus } from "@/lib/mock/service-alerts";
 import {
-  findAlertForRoute,
+  alertAffectsBusAtStop,
+  findAlertForBusAtStop,
   SERVICE_ALERT_REFRESH_MS,
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
@@ -64,11 +65,18 @@ function FavoriteBusPage() {
     data?.error ??
     (arrivalsQuery.error instanceof Error ? arrivalsQuery.error.message : null);
   const isFavorite = favoriteBusIds.includes(bus.id);
-  const liveServiceAlert = findAlertForRoute(
+  const liveServiceAlert = findAlertForBusAtStop(
     alertsQuery.data?.alerts ?? [],
     bus.route,
+    bus.stopId,
   );
-  const serviceAlert = liveServiceAlert ?? getServiceAlertForBus(bus.id);
+  const demoServiceAlert = getServiceAlertForBus(bus.id);
+  const serviceAlert =
+    liveServiceAlert ??
+    (demoServiceAlert &&
+    alertAffectsBusAtStop(demoServiceAlert, bus.route, bus.stopId)
+      ? demoServiceAlert
+      : undefined);
 
   return (
     <main className="app-shell flex min-h-dvh flex-col bg-canvas-soft">

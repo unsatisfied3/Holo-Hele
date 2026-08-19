@@ -1,6 +1,6 @@
 # Holo Hele — Project State
 
-Last updated: 2026-08-16
+Last updated: 2026-08-18
 
 ## Project overview
 
@@ -31,8 +31,8 @@ The React client lives in `src/` and `components/`. File routes render pages; re
 - **Vehicle tracking** — For live arrivals, combines HEA vehicle data with a GTFS trip sequence, route geometry, remaining stop markers, approach line, and stops-away information. Live tracking refreshes every 15 seconds and includes loading/error states.
 - **Route details** — The Hawaiʻi Kai Route 1L example loads an official GTFS trip, shape, stops, and times. Other route URLs show a preview-unavailable state.
 - **Schedules** — Favorite stop and bus flows can open official GTFS daily departures for today or tomorrow and choose a line. Times are scheduled, not live estimates.
-- **Favorites** — Saved buses and curated stops have searchable Buses/Stops tabs, filled-heart saved states, context-aware back navigation, and local persistence.
-- **Rider alerts** — The Bun API retrieves, normalizes, and caches current TheBus Service Disruption notices. The in-app page distinguishes live, stale/unavailable, and labeled demo states, while exact route/stop matches add restrained contextual indicators.
+- **Favorites** — Saved buses and curated stops have searchable Buses/Stops tabs, filled-heart saved states, context-aware back navigation, and local persistence. Curated disruption examples remain available for portfolio simulation; a matching official notice takes precedence when one is active.
+- **Rider alerts** — The Bun API retrieves, normalizes, and caches current TheBus Service Disruption notices. The in-app page handles live, stale, and unavailable states, while exact route/stop matches add restrained contextual indicators. Curated scenarios use the same production-style presentation but remain technically separate from the live response.
 - **Search** — Categorizes buses, stops, and places from curated preview records.
 - **Trip planning and guidance** — Route options, directions, and live-direction screens form a complete demonstrational UI flow; journey routes and timing are simulated.
 - **Settings** — Persists language, location, and service-notification preferences; requests notification permission only after rider intent; provides a test notification; and links to TheBus resources, legal pages, and rider alerts.
@@ -99,7 +99,7 @@ Provides rider coordinates after permission; otherwise maps use a fixed downtown
 
 ### Mock / prototype
 
-- Route 1L detour alert in `lib/mock/service-alerts.ts`.
+- Route 1L detour, Route 1L skipped-stop, Route 65 weather disruption, Routes 3/7 skipped-stop, and system-wide alert scenarios in `lib/mock/service-alerts.ts`. These are plausible future alert shapes modeled after TheBus notices, not a claim that every exact scenario is a verified historical alert.
 - Search bus/place records and all journey options/timings in `lib/mock/journeys.ts`.
 - Favorite bus definitions in `lib/mock/favorites.ts`.
 - Deterministic tracking arrivals, positions, and stop sequences used when directly exercising known mock fixture IDs without an HEA key.
@@ -117,9 +117,17 @@ The Favorites screen and empty-query Search screen consume saved stops. Bus deta
 
 ## Alerts and disruptions
 
-`GET /api/alerts` returns normalized official service disruptions plus source status metadata. Deterministic alert IDs support duplicate suppression, route matching is exact (`1` does not match `1L`), stop matching uses explicit stop numbers only, and `systemWide` represents broad notices intentionally. TanStack Query polls every five minutes. `/alerts` preserves the established pale-blue design and provides loading, empty, stale, and unavailable states plus official source attribution. Relevant live alerts can appear on favorite buses/stops, bus detail, stop detail, and route detail without changing arrival data.
+`GET /api/alerts` returns normalized official service disruptions plus source status metadata. Deterministic alert IDs support duplicate suppression, route matching is exact (`1` does not match `1L`), stop matching uses explicit stop numbers only, and `systemWide` represents broad notices intentionally. TanStack Query polls every five minutes. `/alerts` provides loading, empty, stale, and unavailable states plus official source attribution, while `/alerts/[alertId]` shows only the selected notice. Detours/reroutes use yellow; notices that explicitly report no service, closure, or suspension use red regardless of whether TheBus categorizes the cause as Weather, utilities, roadwork, or a stop closure. A selected curated scenario appears above the general live list when requested.
 
-The existing Route 1L demonstration alert remains under `lib/mock/`, joined by Stop 437 and system-wide portfolio scenarios. Demo content is never returned by the live API and is visibly labeled when rendered.
+Favorite-bus and bus-detail alerts require the notice to affect both that exact route and the bus favorite's saved stop; a whole-stop closure with no route list affects every bus at that stop. A `stop-skipped` notice affects only its named routes at that stop. Stop contexts distinguish an entire stop closure from named routes that are temporarily skipping it. Route pages retain route-wide matching. These alert rules do not modify arrival data.
+
+Favorites keeps Stop 1712 and Stop 1016 as curated disruption examples within the normal Stops list. Each uses a matching official notice while that notice is present in a live alert response; otherwise a mock fixture keeps the portfolio state reviewable. Their GTFS names and coordinates are bundled with the other curated stop metadata. Opening either stop shows the same semantic alert blade as Route 1L—below the navigation bar and above the stop information—and View opens only that alert's explanation before returning to the stop. The Buses tab does not generate entries from affected route IDs, because a route number alone is not a saved bus definition.
+
+Stop-specific skipped-route copy now describes the rider impact directly: one affected route “is temporarily skipping this stop,” multiple routes “are temporarily skipping this stop,” and the curated Route 65 example says weather is affecting service near the stop. Whole-stop closures retain their distinct closed-stop wording.
+
+Favorite-stop alert chips use compact uppercase labels (`STOP SKIPPED · 1L`, `STOP SKIPPED · 3, 7`, and `WEATHER DISRUPTION · 65`). Opening a stop switches to the corresponding full explanatory sentence. The portfolio simulation currently omits visible demo markers, while the fixtures remain technically isolated from live TheBus responses.
+
+The existing Route 1L demonstration alert remains under `lib/mock/`, joined by Stop 437 and system-wide portfolio scenarios. When no live Stop 437 alert exists, the seeded favorite and detail page show a `stop-skipped` scenario: Route 1L temporarily does not serve Stop 437 while other routes may continue serving it. These fixtures use production-style copy for portfolio simulation but are never returned by the live API.
 
 ## Notifications
 
@@ -146,7 +154,7 @@ This is local notification delivery, not production remote push. There is no ser
 - `components/stops/StopDetailScreen.tsx` — arrivals and live refresh behavior
 - `components/tracking/TrackingScreen.tsx` — tracking queries, location, carousel, and states
 - `src/routes/favorites.tsx` — saved buses/stops UI
-- `src/routes/alerts.tsx` and `components/alerts/` — live/demo alert presentation, contextual banner, and running-app monitor
+- `src/routes/alerts.tsx`, `src/routes/alerts_.$alertId.tsx`, and `components/alerts/` — live/demo alert list, single-alert details, contextual banners, and running-app monitor
 - `src/routes/schedule.tsx` — today/tomorrow GTFS schedule flow
 - `lib/favorites.ts` and `lib/onboarding.ts` — local persistence
 - `lib/api/transit.ts` — browser-to-Bun API client
@@ -163,7 +171,7 @@ This is local notification delivery, not production remote push. There is no ser
 ## Demo functionality
 
 - Open `/buses/1l-437` or the Route 1L favorite to demonstrate a contextual detour and in-app alert details.
-- Open `/alerts?demo=route-1l`, `/alerts?demo=stop-437`, or `/alerts?demo=system-wide` for deliberately labeled portfolio scenarios.
+- Open `/alerts?demo=route-1l`, `/alerts?demo=stop-437`, or `/alerts?demo=system-wide` to exercise curated portfolio scenarios with production-style alert copy.
 - In development, open `/settings?demoAlerts=1` after enabling Service alerts to reveal Route 1L, Stop 437, and system-wide demo-notification buttons. The normal **Send test notification** control is available whenever notifications are enabled.
 - Open `/routes/1l-hawaii-kai` to demonstrate the official scheduled Hawaiʻi Kai route map and stop sequence.
 - Search for “Ala Moana” and continue through Plan Trip to demonstrate simulated directions and live guidance.
@@ -187,6 +195,7 @@ This is local notification delivery, not production remote push. There is no ser
 ## Current bugs / issues
 
 - Playwright smoke tests cannot currently run because the expected Chromium binary is not installed; run `bun x playwright install chromium` first.
+- Browser and installed-Tauri notification toasts have not been manually exercised in this environment. Unit coverage verifies preference, permission, fallback, matching, and duplicate behavior, and `cargo check` verifies the native plugin integration compiles.
 
 ## Next priorities
 
@@ -202,13 +211,33 @@ This is local notification delivery, not production remote push. There is no ser
 ### 2026-08-16
 
 - Added server-side TheBus Service Disruption parsing, normalization, deterministic IDs, five-minute caching, stale/unavailable handling, and `/api/alerts`.
-- Connected exact live route/stop alerts to Rider Alerts, Favorites, bus detail, stop detail, and route detail while preserving clearly labeled demo scenarios.
+- Connected exact live route/stop alerts to Rider Alerts, Favorites, bus detail, stop detail, and route detail while preserving technically isolated curated scenarios.
 - Added opt-in Tauri/browser local notifications for new alerts affecting saved routes, duplicate suppression, Settings permission/test controls, and hidden development demo controls.
 - Added focused parser, cache, matching, duplicate, preference, system-wide, and unsupported-notification tests.
+- Added parser-drift detection so alert-like source content that no longer matches the parser becomes stale or unavailable rather than appearing as a false empty feed.
+- Verified 22 alert/notification unit tests, lint, TypeScript/Vite production build, Tauri `cargo check`, and a live alert response with in-process caching from the official source.
+- Tightened bus alerts to exact route-plus-stop matching, added full-versus-partial stop closure copy, semantic yellow detour/red closure colors, and a dedicated selected-alert detail route.
+- Surfaced the Route 1L skipped-stop scenario in Favorite Stops and Stop 437 detail when no live alert takes precedence, without implying the whole stop is closed.
+- Made alert colors follow service impact rather than source category, aligned Affected Lines/Stops heading typography, and moved selected demos above the live list.
 - Added this verified project-state snapshot.
 - Updated the Settings smoke test to match the intentionally removed Reset onboarding control.
 - Added official next-day GTFS schedule loading and preserved the selected day through line selection.
 - Documented the current alert, favorites, location, and notification boundaries.
+
+### 2026-08-17
+
+- Added two curated disruption-stop favorites with official-alert precedence and fallback fixtures so the portfolio state remains available after a notice ends.
+- Removed the separate Current disruptions blade and route-only entries from the Buses tab; the existing Route 1L favorite remains the curated bus example.
+
+### 2026-08-18
+
+- Added top-positioned stop-detail alert blades for the Stop 1712 weather-service and Stop 1016 closure demos, matching the Route 1L hierarchy.
+- Connected each View action to its own alert explanation with stop-aware back navigation.
+- Added compact Favorites labels for skipped stops and weather disruptions, with full rider-facing explanations after opening a stop.
+- Corrected Stop 437 to a route-specific `stop-skipped` scenario: Route 1L is not serving the stop temporarily while other routes may continue normally.
+- Removed visible demo/portfolio markers for controlled presentation, capitalized `DETOUR IN EFFECT`, and changed Alert Details to a white canvas. Mock fixtures remain isolated from the live API.
+- Documented that the curated alerts are realistic future scenarios modeled after TheBus notice patterns, not necessarily verified historical alerts.
+- Verified 27 alert/notification unit tests, ESLint, TypeScript, the Vite production build, and the affected alert/favorites screens in the in-app browser.
 
 ### 2026-08-14
 
@@ -226,5 +255,5 @@ This is local notification delivery, not production remote push. There is no ser
 - Never label GTFS scheduled times as live or modify real arrival data to support demo alerts.
 - Keep HEA credentials server-side; production clients should use `VITE_API_BASE_URL` to reach the deployed Bun API.
 - Route comparisons must preserve exact identities such as `1` versus `1L`.
-- Keep mock data under `lib/mock/` and visibly separate simulated product flows from production sources.
+- Keep mock data under `lib/mock/` and technically separate from production responses. Production-style alert simulations without visible markers are for controlled portfolio demonstrations only.
 - Update only the affected sections of this file after meaningful feature or architecture changes, and append a dated Recent changes entry.

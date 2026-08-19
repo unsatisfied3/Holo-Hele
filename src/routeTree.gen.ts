@@ -17,6 +17,7 @@ import { Route as PlanRouteImport } from './routes/plan'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AlertsAlertIdRouteImport } from './routes/alerts_.$alertId'
 import { Route as BusesBusIdRouteImport } from './routes/buses.$busId'
 import { Route as DirectionsJourneyIdRouteImport } from './routes/directions.$journeyId'
 import { Route as LiveDirectionsJourneyIdRouteImport } from './routes/live-directions.$journeyId'
@@ -66,6 +67,11 @@ const SearchRoute = SearchRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertsAlertIdRoute = AlertsAlertIdRouteImport.update({
+  id: '/alerts_/$alertId',
+  path: '/alerts/$alertId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BusesBusIdRoute = BusesBusIdRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/alerts/$alertId': typeof AlertsAlertIdRoute
   '/buses/$busId': typeof BusesBusIdRoute
   '/directions/$journeyId': typeof DirectionsJourneyIdRoute
   '/live-directions/$journeyId': typeof LiveDirectionsJourneyIdRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/alerts/$alertId': typeof AlertsAlertIdRoute
   '/buses/$busId': typeof BusesBusIdRoute
   '/directions/$journeyId': typeof DirectionsJourneyIdRoute
   '/live-directions/$journeyId': typeof LiveDirectionsJourneyIdRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/alerts_/$alertId': typeof AlertsAlertIdRoute
   '/buses/$busId': typeof BusesBusIdRoute
   '/directions/$journeyId': typeof DirectionsJourneyIdRoute
   '/live-directions/$journeyId': typeof LiveDirectionsJourneyIdRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/alerts/$alertId'
     | '/buses/$busId'
     | '/directions/$journeyId'
     | '/live-directions/$journeyId'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/alerts/$alertId'
     | '/buses/$busId'
     | '/directions/$journeyId'
     | '/live-directions/$journeyId'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/search'
     | '/settings'
+    | '/alerts_/$alertId'
     | '/buses/$busId'
     | '/directions/$journeyId'
     | '/live-directions/$journeyId'
@@ -250,6 +262,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
+  AlertsAlertIdRoute: typeof AlertsAlertIdRoute
   BusesBusIdRoute: typeof BusesBusIdRoute
   DirectionsJourneyIdRoute: typeof DirectionsJourneyIdRoute
   LiveDirectionsJourneyIdRoute: typeof LiveDirectionsJourneyIdRoute
@@ -316,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alerts_/$alertId': {
+      id: '/alerts_/$alertId'
+      path: '/alerts/$alertId'
+      fullPath: '/alerts/$alertId'
+      preLoaderRoute: typeof AlertsAlertIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/buses/$busId': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
+  AlertsAlertIdRoute: AlertsAlertIdRoute,
   BusesBusIdRoute: BusesBusIdRoute,
   DirectionsJourneyIdRoute: DirectionsJourneyIdRoute,
   LiveDirectionsJourneyIdRoute: LiveDirectionsJourneyIdRoute,

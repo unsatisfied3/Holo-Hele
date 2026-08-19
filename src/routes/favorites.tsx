@@ -6,6 +6,7 @@ import {
   AlertTriangleIcon,
   FigmaIcon,
 } from "@/components/icons/FigmaIcon";
+import { getAlertToneClasses } from "@/components/alerts/alertPresentation";
 import { AppShell } from "@/components/layout/AppShell";
 import { fetchServiceAlerts } from "@/lib/api/transit";
 import {
@@ -18,10 +19,17 @@ import {
   FAVORITE_BUS_PRESETS,
   type FavoriteBusDefinition,
 } from "@/lib/mock/favorites";
-import { getServiceAlertForBus } from "@/lib/mock/service-alerts";
 import {
-  findAlertForRoute,
+  FAVORITE_DISRUPTION_STOP_IDS,
+  getFavoriteStopDisruptionPreview,
+  getServiceAlertForBus,
+  getServiceAlertForStop,
+} from "@/lib/mock/service-alerts";
+import {
+  alertAffectsBusAtStop,
+  findAlertForBusAtStop,
   findAlertForStop,
+  getCompactStopAlertLabel,
   SERVICE_ALERT_REFRESH_MS,
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
@@ -34,6 +42,11 @@ type FavoriteTab = "buses" | "stops";
 
 interface FavoritesSearch {
   tab?: FavoriteTab;
+}
+
+interface ShowcaseStopDisruption {
+  alert: TransitAlert;
+  stop: StopLocation;
 }
 
 export const Route = createFileRoute("/favorites")({
@@ -80,14 +93,25 @@ function FavoritesPage() {
     staleTime: SERVICE_ALERT_REFRESH_MS,
   });
   const liveAlerts = alertsQuery.data?.alerts ?? [];
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-
+  const currentOfficialAlerts =
+    alertsQuery.data?.status === "live" ? liveAlerts : [];
   const favoriteStops = favoriteStopIds
     .map(getStopById)
     .filter((stop): stop is StopLocation => stop != null);
   const favoriteBuses = FAVORITE_BUS_PRESETS.filter((bus) =>
     favoriteBusIds.includes(bus.id),
   );
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+
+  const showcaseStopDisruptions = FAVORITE_DISRUPTION_STOP_IDS.filter(
+    (stopId) => !favoriteStopIds.includes(stopId),
+  ).flatMap((stopId) => {
+      const stop = getStopById(stopId);
+      const alert =
+        findAlertForStop(currentOfficialAlerts, stopId) ??
+        getFavoriteStopDisruptionPreview(stopId);
+      return stop && alert ? [{ alert, stop }] : [];
+    });
   const visibleStops = favoriteStops.filter(
     (stop) =>
       !normalizedQuery ||
@@ -101,8 +125,21 @@ function FavoritesPage() {
       bus.headsign.toLocaleLowerCase().includes(normalizedQuery) ||
       bus.stopName.toLocaleLowerCase().includes(normalizedQuery),
   );
-  const items = activeTab === "buses" ? visibleBuses : visibleStops;
-  const allItems = activeTab === "buses" ? favoriteBuses : favoriteStops;
+  const visibleShowcaseStops = showcaseStopDisruptions.filter(
+    ({ alert, stop }) =>
+      !normalizedQuery ||
+      stop.name.toLocaleLowerCase().includes(normalizedQuery) ||
+      stop.id.includes(normalizedQuery) ||
+      alert.title.toLocaleLowerCase().includes(normalizedQuery),
+  );
+  const visibleItemCount =
+    activeTab === "buses"
+      ? visibleBuses.length
+      : visibleStops.length + visibleShowcaseStops.length;
+  const allItemCount =
+    activeTab === "buses"
+      ? favoriteBuses.length
+      : favoriteStops.length + showcaseStopDisruptions.length;
 
   return (
     <AppShell>
@@ -149,9 +186,9 @@ function FavoritesPage() {
           ))}
         </div>
 
-        {allItems.length === 0 ? (
+        {allItemCount === 0 ? (
           <EmptyFavorites activeTab={activeTab} />
-        ) : items.length === 0 ? (
+        ) : visibleItemCount === 0 ? (
           <section className="flex flex-1 items-center justify-center px-8 pb-12 text-center">
             <div>
               <h2 className="text-base font-semibold text-ink">
@@ -163,9 +200,16 @@ function FavoritesPage() {
             </div>
           </section>
         ) : activeTab === "buses" ? (
-          <FavoriteBusList buses={visibleBuses} liveAlerts={liveAlerts} />
+          <FavoriteBusList
+            buses={visibleBuses}
+            liveAlerts={liveAlerts}
+          />
         ) : (
-          <FavoriteStopList stops={visibleStops} liveAlerts={liveAlerts} />
+          <FavoriteStopList
+            stops={visibleStops}
+            showcaseDisruptions={visibleShowcaseStops}
+            liveAlerts={liveAlerts}
+          />
         )}
       </main>
     </AppShell>
@@ -183,8 +227,21 @@ function FavoriteBusList({
     <section aria-label="Favorite buses" className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
         {buses.map((bus) => {
+          const liveServiceAlert = findAlertForBusAtStop(
+            liveAlerts,
+            bus.route,
+            bus.stopId,
+          );
+          const demoServiceAlert = getServiceAlertForBus(bus.id);
           const serviceAlert =
-            findAlertForRoute(liveAlerts, bus.route) ?? getServiceAlertForBus(bus.id);
+            liveServiceAlert ??
+            (demoServiceAlert &&
+            alertAffectsBusAtStop(demoServiceAlert, bus.route, bus.stopId)
+              ? demoServiceAlert
+              : undefined);
+          const alertTone = serviceAlert
+            ? getAlertToneClasses(serviceAlert)
+            : undefined;
 
           return (
           <li key={bus.id} className="flex min-h-[64px] items-center gap-2">
@@ -206,12 +263,15 @@ function FavoriteBusList({
                 </p>
                 <p className="mt-0.5 truncate text-xs text-body">{bus.stopName}</p>
                 {serviceAlert ? (
-                  <p className="mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-alert-subtle px-1.5 py-1 text-xs font-medium text-alert">
+                  <p
+                    className={cn(
+                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                      alertTone?.surface,
+                      alertTone?.text,
+                    )}
+                  >
                     <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      {serviceAlert.title}
-                      {serviceAlert.source === "holohele-demo" ? " · Demo" : ""}
-                    </span>
+                    <span>{serviceAlert.title}</span>
                   </p>
                 ) : null}
               </Link>
@@ -230,16 +290,22 @@ function FavoriteBusList({
 
 function FavoriteStopList({
   stops,
+  showcaseDisruptions,
   liveAlerts,
 }: {
   stops: StopLocation[];
+  showcaseDisruptions: ShowcaseStopDisruption[];
   liveAlerts: TransitAlert[];
 }) {
   return (
     <section aria-label="Favorite stops" className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
         {stops.map((stop) => {
-          const serviceAlert = findAlertForStop(liveAlerts, stop.id);
+          const serviceAlert =
+            findAlertForStop(liveAlerts, stop.id) ?? getServiceAlertForStop(stop.id);
+          const alertTone = serviceAlert
+            ? getAlertToneClasses(serviceAlert)
+            : undefined;
           return (
           <li key={stop.id} className="flex min-h-[56px] items-center gap-2">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-blue-subtle">
@@ -258,9 +324,15 @@ function FavoriteStopList({
               >
                 <p className="truncate text-sm font-normal leading-snug text-ink">{stop.name}</p>
                 {serviceAlert ? (
-                  <p className="mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-alert-subtle px-1.5 py-1 text-xs font-medium text-alert">
+                  <p
+                    className={cn(
+                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                      alertTone?.surface,
+                      alertTone?.text,
+                    )}
+                  >
                     <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span>{serviceAlert.title}</span>
+                    <span>{getCompactStopAlertLabel(serviceAlert, stop.id)}</span>
                   </p>
                 ) : null}
               </Link>
@@ -270,6 +342,54 @@ function FavoriteStopList({
               />
             </div>
           </li>
+          );
+        })}
+        {showcaseDisruptions.map(({ alert, stop }) => {
+          const alertTone = getAlertToneClasses(alert);
+          return (
+            <li
+              key={`${alert.id}:${stop.id}`}
+              className="flex min-h-[56px] items-center gap-2"
+            >
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-blue-subtle">
+                <FigmaIcon
+                  name="busStopSign"
+                  size={14}
+                  className="icon-brand-blue h-3.5 w-3.5"
+                />
+              </div>
+              <Link
+                to="/stops/$id"
+                params={{ id: stop.id }}
+                search={{ from: "favorites" }}
+                className="min-w-0 flex-1 border-b border-hairline py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+              >
+                <p className="truncate text-sm font-normal leading-snug text-ink">
+                  {stop.name}
+                </p>
+                <p className="mt-0.5 text-xs text-body">Stop {stop.id}</p>
+                <p
+                  className={cn(
+                    "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                    alertTone.surface,
+                    alertTone.text,
+                  )}
+                >
+                  <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{getCompactStopAlertLabel(alert, stop.id)}</span>
+                </p>
+              </Link>
+              <span
+                aria-label={`${stop.name} saved favorite`}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-blue"
+              >
+                <FigmaIcon
+                  name="favorites"
+                  size={20}
+                  className="icon-brand-blue h-5 w-5"
+                />
+              </span>
+            </li>
           );
         })}
       </ul>

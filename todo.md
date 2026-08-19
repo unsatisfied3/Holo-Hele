@@ -390,11 +390,11 @@ A service change is affecting Route 1L. Check the alert before traveling.
 
 ### Scenario B
 
-Stop 437 closure
+Route 1L skips Stop 437
 
 Example:
 
-**Stop 437 temporarily closed**
+**Route 1L is temporarily skipping this stop.**
 
 Route 1L riders should use the nearby alternative stop.
 
@@ -718,9 +718,9 @@ Examples:
 
 Service changes may affect your trip. View the alert for details.
 
-### Stop closure
+### Route-specific skipped stop
 
-**Stop 437 temporarily closed**
+**Route 1L is temporarily skipping this stop.**
 
 Route 1L is using an alternative stop.
 
@@ -986,7 +986,7 @@ Give me a concise report containing:
 Tell me exactly how to demonstrate:
 
 1. Route 1L service disruption
-2. Stop 437 closure
+2. Route 1L skipping Stop 437
 3. system-wide disruption
 4. test notification
 
@@ -1003,3 +1003,45 @@ Explain in simple terms what would still be required for notifications to arrive
 Tell me what tests/checks you successfully ran.
 
 Do not claim something is working unless you actually verified it.
+
+---
+
+# Implementation status — 2026-08-16
+
+## Completed
+
+- [x] Added a normalized `TransitAlert` contract shared by the Bun API and client.
+- [x] Added server-side parsing for the official TheBus Service Disruption page, including exact route matching, explicit stop matching, deterministic IDs, a five-minute memory cache, request timeout, and last-known-good fallback.
+- [x] Added `GET /api/alerts` and the corresponding client query.
+- [x] Connected live alerts to Rider Alerts, Favorites, bus detail, stop detail, and route detail without changing arrival, schedule, or tracking data.
+- [x] Preserved the Route 1L demonstration and added clearly labeled Stop 437 and system-wide demo scenarios under `lib/mock/`.
+- [x] Added opt-in service-alert notifications using the official Tauri notification plugin with a browser Notifications API fallback.
+- [x] Added contextual permission handling, a quiet initial baseline, exact favorite-route matching, system-wide matching, and persisted duplicate suppression.
+- [x] Added Settings controls for enabling alerts and sending a test notification, plus hidden development-only demo notification controls.
+- [x] Added parser/cache, alert matching, preference, permission, duplicate, and notification tests.
+- [x] Added parser-drift detection so alert-like source content that cannot be parsed is reported as unavailable or stale instead of as an empty feed.
+- [x] Required exact route-plus-stop matching for bus alerts, clarified whole versus route-specific stop closures, added yellow detour/red closure states, and made View open a single-alert detail page.
+- [x] Surfaced the Route 1L skipped-stop demo in Favorite Stops and Stop 437 detail without implying that the whole stop is closed.
+- [x] Colored explicit closures/no-service notices red regardless of source category, kept detours yellow, aligned affected-section headings, and prioritized selected demos above live alerts.
+- [x] Updated `DESIGN.md` and `PROJECT_STATE.md` for the current alert and notification architecture.
+
+## Deliberately deferred or out of production scope
+
+- [ ] Parse the broader mixed-content Rider Alerts index. The official Service Disruption page is the current live source; the index remains deferred because its mixed legacy markup is less reliable.
+- [ ] Deliver alerts while Holo Hele is completely closed. This requires a production backend scheduler, registered device tokens, and Apple/Google push infrastructure rather than the current running-app local notification layer.
+- [ ] Add notification-click deep linking. Local alert delivery does not depend on it, and it was not required for the current prototype.
+
+## Verification completed
+
+- [x] `bun run test:unit` — 22 tests and 44 expectations passed.
+- [x] `bun run lint` passed.
+- [x] `bun run build` passed, including TypeScript checking and the Vite production build.
+- [x] `cargo check` passed for the Tauri shell and notification plugin integration.
+- [x] The live local `/api/alerts` endpoint returned 16 normalized official alerts with stable IDs, live-source metadata, and working in-process cache behavior.
+- [x] Playwright smoke-test discovery passed and listed all 7 current scenarios.
+
+## Still requires manual environment verification
+
+- [ ] Verify a real browser notification after granting permission in a supported external browser.
+- [ ] Verify a native operating-system toast from an installed Tauri build. The Rust/plugin integration compiles, but an installed-app notification was not manually exercised in this environment.
+- [ ] Run the full Playwright smoke suite after its Chromium browser is installed.

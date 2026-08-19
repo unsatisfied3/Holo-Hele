@@ -12,7 +12,13 @@
   --ink: #000000;
   --live: #1a7f37;
   --alert: #765000;
+  --alert-border: #d8bd67;
+  --alert-soft: #ffe9a3;
   --alert-subtle: #fff2c2;
+  --closure: #9f1239;
+  --closure-border: #f1a7b8;
+  --closure-soft: #ffe4e8;
+  --closure-subtle: #fff1f3;
   --transit-blue: #0055a5;
   --transit-blue-soft: #eaf2ff;
   --charcoal-100: #fafafa;
@@ -58,7 +64,13 @@
   --color-hairline: var(--hairline);
   --color-live: var(--live);
   --color-alert: var(--alert);
+  --color-alert-border: var(--alert-border);
+  --color-alert-soft: var(--alert-soft);
   --color-alert-subtle: var(--alert-subtle);
+  --color-closure: var(--closure);
+  --color-closure-border: var(--closure-border);
+  --color-closure-soft: var(--closure-soft);
+  --color-closure-subtle: var(--closure-subtle);
   --color-transit-blue: var(--transit-blue);
   --color-transit-blue-soft: var(--transit-blue-soft);
   --color-charcoal-100: var(--charcoal-100);

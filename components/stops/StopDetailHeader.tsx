@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import {
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { StopLocation } from "@/types/transit";
 
 interface StopDetailHeaderProps {
+  alertBanner?: ReactNode;
   stop: StopLocation;
   fromFavorites?: boolean;
 }
@@ -15,7 +17,11 @@ interface StopDetailHeaderProps {
 const actionButtonClass =
   "inline-flex min-h-10 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue-border bg-brand-blue-subtle p-2 text-brand-blue transition-colors hover:bg-brand-blue-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
 
-export function StopDetailHeader({ stop, fromFavorites = false }: StopDetailHeaderProps) {
+export function StopDetailHeader({
+  alertBanner,
+  stop,
+  fromFavorites = false,
+}: StopDetailHeaderProps) {
   const favoriteStopIds = useFavoriteStopIds();
   const isFavorite = favoriteStopIds.includes(stop.id);
 
@@ -43,6 +49,8 @@ export function StopDetailHeader({ stop, fromFavorites = false }: StopDetailHead
         <h1 className="flex-1 text-center text-base font-semibold text-ink">Stop</h1>
         <span className="h-10 w-6 shrink-0" aria-hidden="true" />
       </header>
+
+      {alertBanner}
 
       <section className="px-4 pb-4 pt-6">
         <div className="flex flex-col gap-6">

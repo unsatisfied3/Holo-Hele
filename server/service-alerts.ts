@@ -238,7 +238,14 @@ export function createServiceAlertService({
         throw new Error("TheBus alert page format was not recognized.");
       }
 
-      const alerts = parseServiceDisruptionHtml(html);
+      const lines = serviceDisruptionHtmlToLines(html);
+      const alerts = parseServiceDisruptionLines(lines);
+      const hasUnparsedAlertContent = lines.some(
+        (line) => ENTRY_START.test(line) || ROUTE_LINE.test(line),
+      );
+      if (alerts.length === 0 && hasUnparsedAlertContent) {
+        throw new Error("TheBus alert entries could not be parsed.");
+      }
       const fetchedAt = new Date(timestamp).toISOString();
       cache = { alerts, fetchedAt, expiresAt: timestamp + cacheMs };
       return {

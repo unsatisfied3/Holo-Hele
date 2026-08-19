@@ -3,8 +3,30 @@ import type { TransitAlert } from "@/types/transit";
 export const SERVICE_ALERTS_QUERY_KEY = ["service-alerts"] as const;
 export const SERVICE_ALERT_REFRESH_MS = 5 * 60 * 1000;
 
+export type AlertPresentationTone = "closure" | "detour" | "default";
+
 export function normalizeRouteId(route: string): string {
   return route.trim().toLocaleUpperCase().replace(/\s+LINE$/, "");
+}
+
+export function getAlertPresentationTone(
+  alert: TransitAlert,
+): AlertPresentationTone {
+  const noticeText = `${alert.title} ${alert.description}`;
+
+  if (alert.type === "stop-closure" || alert.type === "stop-skipped") {
+    return "closure";
+  }
+
+  if (alert.type === "detour" || /\bdetour(?:ed)?\b|\brerout(?:e|ed|ing)\b/i.test(noticeText)) {
+    return "detour";
+  }
+
+  const indicatesClosure =
+    /\b(?:closed?|closure|suspended?)\b/i.test(noticeText) ||
+    /\bno\s+(?:(?:east|west|north|south)bound\s+)?service\b/i.test(noticeText);
+
+  return indicatesClosure ? "closure" : "default";
 }
 
 export function alertAffectsRoute(alert: TransitAlert, route: string): boolean {
@@ -19,6 +41,18 @@ export function alertAffectsStop(alert: TransitAlert, stopId: string): boolean {
   return alert.affectedStops.some((stop) => stop.trim() === normalizedStop);
 }
 
+export function alertAffectsBusAtStop(
+  alert: TransitAlert,
+  route: string,
+  stopId: string,
+): boolean {
+  if (alert.systemWide || !alertAffectsStop(alert, stopId)) return false;
+
+  const closesEntireStop =
+    alert.type === "stop-closure" && alert.affectedRoutes.length === 0;
+  return closesEntireStop || alertAffectsRoute(alert, route);
+}
+
 export function findAlertForRoute(
   alerts: TransitAlert[],
   route: string,
@@ -28,6 +62,14 @@ export function findAlertForRoute(
   );
 }
 
+export function findAlertForBusAtStop(
+  alerts: TransitAlert[],
+  route: string,
+  stopId: string,
+): TransitAlert | undefined {
+  return alerts.find((alert) => alertAffectsBusAtStop(alert, route, stopId));
+}
+
 export function findAlertForStop(
   alerts: TransitAlert[],
   stopId: string,
@@ -35,6 +77,61 @@ export function findAlertForStop(
   return alerts.find(
     (alert) => !alert.systemWide && alertAffectsStop(alert, stopId),
   );
+}
+
+export function getStopAlertLabel(
+  alert: TransitAlert,
+  stopId: string,
+): string {
+  if (!alertAffectsStop(alert, stopId)) {
+    return alert.title;
+  }
+
+  const routes = [...new Set(alert.affectedRoutes.map(normalizeRouteId))];
+  const isRouteSpecificSkippedStop =
+    alert.type === "stop-skipped" ||
+    (alert.type === "stop-closure" && routes.length > 0);
+
+  if (isRouteSpecificSkippedStop) {
+    if (routes.length === 1) {
+      return `Route ${routes[0]} is temporarily skipping this stop.`;
+    }
+
+    if (routes.length > 1) {
+      const lastRoute = routes.at(-1);
+      return `Routes ${routes.slice(0, -1).join(", ")} and ${lastRoute} are temporarily skipping this stop.`;
+    }
+  }
+
+  return alert.type === "stop-closure"
+    ? "Entire stop temporarily closed"
+    : alert.title;
+}
+
+export function getCompactStopAlertLabel(
+  alert: TransitAlert,
+  stopId: string,
+): string {
+  if (!alertAffectsStop(alert, stopId)) return alert.title;
+
+  const routes = [...new Set(alert.affectedRoutes.map(normalizeRouteId))];
+
+  if (alert.type === "stop-skipped" || alert.type === "stop-closure") {
+    const isFullStopClosure =
+      alert.type === "stop-closure" && routes.length === 0;
+    return routes.length > 0
+      ? `STOP SKIPPED · ${routes.join(", ")}`
+      : isFullStopClosure
+        ? "STOP CLOSED"
+        : alert.title;
+  }
+
+  const noticeText = `${alert.title} ${alert.description}`;
+  if (/\bweather\b/i.test(noticeText) && routes.length > 0) {
+    return `WEATHER DISRUPTION · ${routes.join(", ")}`;
+  }
+
+  return alert.title;
 }
 
 export function shouldNotifyForAlert({
@@ -67,12 +164,21 @@ export function getAlertNotificationCopy(alert: TransitAlert): {
     };
   }
 
+  const isRouteSpecificSkippedStop =
+    alert.type === "stop-skipped" ||
+    (alert.type === "stop-closure" && route != null);
+
+  if (isRouteSpecificSkippedStop && route && stop) {
+    return {
+      title: `Route ${route} skipping Stop ${stop}`,
+      body: `Route ${route} is temporarily not serving this stop. Other routes may continue normally.`,
+    };
+  }
+
   if (alert.type === "stop-closure" && stop) {
     return {
       title: `Stop ${stop} temporarily closed`,
-      body: route
-        ? `Route ${route} may be using an alternative stop.`
-        : "Use the nearby alternative stop shown in the alert.",
+      body: "Use the nearby alternative stop shown in the alert.",
     };
   }
 

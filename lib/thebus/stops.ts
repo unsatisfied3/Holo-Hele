@@ -37,6 +37,20 @@ export const HONOLULU_STOPS: StopLocation[] = [
     lng: -158.00275,
     kind: "station",
   },
+  {
+    id: "1712",
+    name: "KAMEHAMEHA HWY + PUAHUULA PL",
+    lat: 21.396434,
+    lng: -157.797518,
+    kind: "stop",
+  },
+  {
+    id: "1016",
+    name: "KAPIOLANI BL + MCCULLY ST",
+    lat: 21.289386,
+    lng: -157.831987,
+    kind: "stop",
+  },
 ];
 
 export function haversineMeters(

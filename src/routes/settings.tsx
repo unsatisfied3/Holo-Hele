@@ -233,7 +233,9 @@ function SettingsPage() {
     setNotificationMessage(
       permission === "denied"
         ? "Notifications are blocked. Enable them in your browser or device settings to receive service alerts."
-        : "System notifications are not supported in this environment. In-app Rider Alerts are still available.",
+        : permission === "prompt"
+          ? "Notification permission was not granted. You can try again whenever you are ready."
+          : "System notifications are not supported in this environment. In-app Rider Alerts are still available.",
     );
   }
 

@@ -135,6 +135,7 @@ export type TransitAlertType =
   | "service-disruption"
   | "detour"
   | "stop-closure"
+  | "stop-skipped"
   | "service-change"
   | "roadwork"
   | "other";
