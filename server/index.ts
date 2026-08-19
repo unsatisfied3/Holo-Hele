@@ -10,6 +10,7 @@ import { getStopById } from "@/lib/thebus/stops";
 import { estimateStopsAway } from "@/lib/tracking/route-visualization";
 import {
   getGtfsNearbyStops,
+  getGtfsStops,
   getGtfsDailyStopSchedule,
   getGtfsRouteSchedule,
   getGtfsStop,
@@ -334,6 +335,26 @@ async function tracking(url: URL, origin: string | null): Promise<Response> {
   );
 }
 
+async function mapStops(origin: string | null): Promise<Response> {
+  try {
+    return json(
+      {
+        stops: await getGtfsStops(),
+        fetchedAt: new Date().toISOString(),
+        dataSource: "scheduled" as const,
+      },
+      200,
+      origin,
+    );
+  } catch {
+    return json(
+      { error: "Official island-wide stop data is temporarily unavailable." },
+      502,
+      origin,
+    );
+  }
+}
+
 async function routeSchedule(url: URL, origin: string | null): Promise<Response> {
   const route = url.searchParams.get("route")?.trim();
   const destination = url.searchParams.get("destination")?.trim();
@@ -445,6 +466,7 @@ const server = Bun.serve({
       return json({ status: "ok" }, 200, origin);
     }
     if (url.pathname === "/api/nearby") return nearby(url, origin);
+    if (url.pathname === "/api/stops") return mapStops(origin);
     if (url.pathname === "/api/stop") return stopLocation(url, origin);
     if (url.pathname === "/api/arrivals") return arrivals(url, origin);
     if (url.pathname === "/api/tracking") return tracking(url, origin);

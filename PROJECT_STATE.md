@@ -1,6 +1,6 @@
 # Holo Hele — Project State
 
-Last updated: 2026-08-18
+Last updated: 2026-08-19
 
 ## Project overview
 
@@ -26,7 +26,7 @@ The React client lives in `src/` and `components/`. File routes render pages; re
 ## Implemented features
 
 - **Onboarding** — A timed landing screen advances to language selection and optional location permission. Choices persist locally.
-- **Nearby stops** — Uses device coordinates or downtown Honolulu as fallback. It shows ten official GTFS stops; an HEA key enriches up to four with live arrivals.
+- **Nearby stops and island map** — Uses device coordinates or downtown Honolulu as fallback. The nearby sheet shows ten official GTFS stops and an HEA key enriches up to four with live arrivals. Home also loads all 3,843 stops in the current GTFS feed, rendering only viewport-relevant, zoom-thinned markers. Official transit-center anchors provide sparse bus-icon context at wide zooms, and a selected stop uses the Figma primary-blue glow.
 - **Stop details** — Loads a bundled preview stop or any stop available from GTFS, displays lines and arrivals, distinguishes scheduled from estimated times, and refreshes live arrivals every 30 seconds.
 - **Vehicle tracking** — For live arrivals, combines HEA vehicle data with a GTFS trip sequence, route geometry, remaining stop markers, approach line, and stops-away information. Live tracking refreshes every 15 seconds and includes loading/error states.
 - **Route details** — The Hawaiʻi Kai Route 1L example loads an official GTFS trip, shape, stops, and times. Other route URLs show a preview-unavailable state.
@@ -67,7 +67,7 @@ Favorite Route 1L or its bus page → detour indicator → in-app rider-alert de
 
 ### TheBus official GTFS
 
-Provides stops, routes, trips, stop times, calendars, shapes, and scheduled service. It is downloaded from `thebus.org` on first use and cached for the server process. It powers nearby stops, scheduled arrivals, route details, tracking stop sequences, and daily schedules. It is scheduled—not live—and has no timed refresh.
+Provides stops, routes, trips, stop times, calendars, shapes, and scheduled service. It is downloaded from `thebus.org` on first use and cached for the server process. It powers the island-wide map, nearby stops, scheduled arrivals, route details, tracking stop sequences, and daily schedules. It is scheduled—not live—and has no timed refresh.
 
 ### TheBus HEA API
 
@@ -96,6 +96,7 @@ Provides rider coordinates after permission; otherwise maps use a fixed downtown
 ### Scheduled official data
 
 - GTFS nearby stops, route shapes, stop sequences, service calendars, stop times, and today/tomorrow schedules.
+- The complete GTFS stop location list returned by `/api/stops`; service information for a selected map stop is requested separately.
 
 ### Mock / prototype
 
@@ -107,6 +108,7 @@ Provides rider coordinates after permission; otherwise maps use a fixed downtown
 ### Hybrid
 
 - Nearby stops always originate from GTFS; with an HEA key, only the closest four are enriched with HEA arrivals. A failed HEA request retains scheduled data and reports that results may be incomplete.
+- Home loads all stop locations once, filters them to the map viewport, and uses screen-grid thinning below zoom 16. Ordinary stops remain compact dots at wide zooms; manually verified public stop IDs for official transit centers are prioritized as small bus icons so the dots have clear context without random visual emphasis. Center anchors that collide at island zoom still obey the same thinning and appear as riders zoom closer. This keeps the island visible without mounting thousands of Leaflet markers. A selected non-nearby stop reuses the normal `/api/arrivals` request and query cache.
 - Live tracking uses HEA for the selected vehicle and GTFS for route shape/stop order. If GTFS matching fails, the UI does not invent named live stops.
 
 ## Favorites
@@ -151,6 +153,7 @@ This is local notification delivery, not production remote push. There is no ser
 - `src/router.tsx` and `src/routes/` — route registration and page flows
 - `src/styles.css` — design tokens and global responsive/map styles
 - `components/home/HomeScreen.tsx` — home map, nearby stops, and selected-stop state
+- `components/map/TransitMap.tsx` — viewport filtering, zoom-aware marker density, and map interactions
 - `components/stops/StopDetailScreen.tsx` — arrivals and live refresh behavior
 - `components/tracking/TrackingScreen.tsx` — tracking queries, location, carousel, and states
 - `src/routes/favorites.tsx` — saved buses/stops UI
@@ -238,6 +241,15 @@ This is local notification delivery, not production remote push. There is no ser
 - Removed visible demo/portfolio markers for controlled presentation, capitalized `DETOUR IN EFFECT`, and changed Alert Details to a white canvas. Mock fixtures remain isolated from the live API.
 - Documented that the curated alerts are realistic future scenarios modeled after TheBus notice patterns, not necessarily verified historical alerts.
 - Verified 27 alert/notification unit tests, ESLint, TypeScript, the Vite production build, and the affected alert/favorites screens in the in-app browser.
+
+### 2026-08-19
+
+- Added `/api/stops`, backed by the official active GTFS index, for lightweight island-wide stop locations.
+- Populated Home with all 3,843 current Oʻahu stops while mounting only viewport-visible markers.
+- Added compact, screen-grid-thinned markers below zoom 16 and full stop markers at neighborhood zoom 16 and above.
+- Added one stable, small bus-icon anchor for each verified official transit center at wide zooms; all other stops remain dots, and the selected stop uses the Figma primary-blue glow.
+- Kept the Nearby Stops sheet at ten enriched results and moved service loading for other map stops to an on-demand `/api/arrivals` request.
+- Verified the API stop count, a non-nearby stop selection with real scheduled services, zoomed-out marker density, and horizontal layout in the in-app browser.
 
 ### 2026-08-14
 

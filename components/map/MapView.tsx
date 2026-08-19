@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import type { NearbyStopResult } from "@/types/transit";
+import type { StopLocation } from "@/types/transit";
 
 const TransitMap = lazy(() =>
   import("@/components/map/TransitMap").then((module) => ({
@@ -17,10 +17,10 @@ function MapLoading() {
 
 interface MapViewProps {
   center: [number, number];
-  stops: NearbyStopResult[];
+  stops: StopLocation[];
   selectedStopId?: string;
   userLocation?: [number, number];
-  onStopSelect?: (stop: NearbyStopResult) => void;
+  onStopSelect?: (stop: StopLocation) => void;
 }
 
 export function MapView(props: MapViewProps) {

@@ -23,11 +23,18 @@ export const FIGMA_ICONS = {
 export type FigmaIconName = keyof typeof FIGMA_ICONS;
 
 export function createBusStopMarkerHtml(selected = false): string {
-  const marker = `<div style="width:36px;height:36px;border-radius:999px;background:var(--canvas);display:flex;align-items:center;justify-content:center;border:3px solid var(--brand-blue)"><span aria-hidden="true" style="display:block;width:20px;height:20px;background:var(--brand-blue);-webkit-mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat;mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat"></span></div>`;
+  const shadow = selected
+    ? "box-shadow:0 0 12px rgba(0,65,141,.8);"
+    : "";
+  return `<div style="width:36px;height:36px;border-radius:999px;background:var(--canvas);display:flex;align-items:center;justify-content:center;border:3px solid var(--brand-blue);${shadow}"><span aria-hidden="true" style="display:block;width:20px;height:20px;background:var(--brand-blue);-webkit-mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat;mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat"></span></div>`;
+}
 
-  if (!selected) return marker;
+export function createCompactBusStopMarkerHtml(): string {
+  return `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center"><div style="width:14px;height:14px;border-radius:999px;background:var(--canvas);border:3px solid var(--brand-blue)"></div></div>`;
+}
 
-  return `<div style="width:52px;height:52px;border-radius:999px;background:var(--brand-blue-soft);display:flex;align-items:center;justify-content:center">${marker}</div>`;
+export function createTransitCenterMarkerHtml(): string {
+  return `<div style="width:28px;height:28px;border-radius:999px;background:var(--canvas);display:flex;align-items:center;justify-content:center;border:2px solid var(--brand-blue)"><span aria-hidden="true" style="display:block;width:15px;height:15px;background:var(--brand-blue);-webkit-mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat;mask:url('/icons/figma/map-marker-bus.svg') center/contain no-repeat"></span></div>`;
 }
 
 export function createBusVehicleMarkerHtml(): string {

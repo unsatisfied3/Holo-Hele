@@ -12,9 +12,11 @@ function formatRouteTime(arrival: TheBusArrival | undefined): string {
 
 export function SelectedStopSheet({
   stopResult,
+  loading = false,
   onClose,
 }: {
   stopResult: NearbyStopResult;
+  loading?: boolean;
   onClose: () => void;
 }) {
   const { stop, lines, arrivals } = stopResult;
@@ -45,10 +47,20 @@ export function SelectedStopSheet({
         </div>
 
         <p className="mt-[10px] text-xs font-normal uppercase tracking-[0.02em] text-mute">
-          {lines.length} services
+          {loading ? "Loading services…" : `${lines.length} services`}
         </p>
 
-        <ul className="selected-stop-sheet__grid grid grid-cols-4 gap-1.5">
+        {stopResult.error ? (
+          <p className="mt-[10px] text-xs leading-relaxed text-body">
+            Service information is temporarily unavailable. You can still open
+            this stop’s arrivals page.
+          </p>
+        ) : null}
+
+        <ul
+          className="selected-stop-sheet__grid grid grid-cols-4 gap-1.5"
+          aria-busy={loading}
+        >
           {visibleLines.map((line) => {
             const arrival = arrivals.find((item) => item.route === line);
             const routeTime = formatRouteTime(arrival);

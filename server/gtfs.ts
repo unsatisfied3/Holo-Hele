@@ -615,6 +615,17 @@ export async function getGtfsNearbyStops({
   });
 }
 
+export async function getGtfsStops(): Promise<StopLocation[]> {
+  const index = await getGtfsIndex();
+  return index.stops.map(({ id, name, lat, lng, kind }) => ({
+    id,
+    name,
+    lat,
+    lng,
+    kind,
+  }));
+}
+
 export async function getGtfsRouteSchedule({
   route,
   destination,

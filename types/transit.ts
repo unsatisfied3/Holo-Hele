@@ -93,6 +93,12 @@ export interface StopArrivalsResponse {
   error?: string;
 }
 
+export interface MapStopsResponse {
+  stops: StopLocation[];
+  fetchedAt: string;
+  dataSource: "scheduled";
+}
+
 export interface DailyScheduleDeparture {
   id: string;
   route: string;

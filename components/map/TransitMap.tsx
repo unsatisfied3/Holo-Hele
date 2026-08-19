@@ -1,19 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import L from "leaflet";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import { MapControls } from "@/components/map/MapControls";
 import {
   createBusStopMarkerHtml,
+  createCompactBusStopMarkerHtml,
+  createTransitCenterMarkerHtml,
   createUserLocationMarkerHtml,
 } from "@/lib/figma-icons";
-import type { NearbyStopResult } from "@/types/transit";
+import type { StopLocation } from "@/types/transit";
 
 interface TransitMapProps {
   center: [number, number];
-  stops: NearbyStopResult[];
+  stops: StopLocation[];
   selectedStopId?: string;
   userLocation?: [number, number];
-  onStopSelect?: (stop: NearbyStopResult) => void;
+  onStopSelect?: (stop: StopLocation) => void;
 }
 
 function RecenterMap({ center }: { center: [number, number] }) {
@@ -43,9 +52,113 @@ const stopIcon = L.divIcon({
 const selectedStopIcon = L.divIcon({
   className: "map-stop-marker map-stop-marker--selected",
   html: createBusStopMarkerHtml(true),
-  iconSize: [52, 52],
-  iconAnchor: [26, 26],
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
 });
+
+const compactStopIcon = L.divIcon({
+  className: "map-stop-marker map-stop-marker--compact",
+  html: createCompactBusStopMarkerHtml(),
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
+const transitCenterIcon = L.divIcon({
+  className: "map-stop-marker map-stop-marker--transit-center",
+  html: createTransitCenterMarkerHtml(),
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
+// One representative public stop ID for each verified TheBus transit center.
+// Multi-platform centers intentionally get one anchor to keep wide zooms calm.
+const OFFICIAL_TRANSIT_CENTER_STOP_IDS = new Set([
+  "428", // Ala Moana Center
+  "2288", // Alapaʻi Transit Center
+  "4202", // Ewa Beach Transit Center
+  "4430", // Hawaiʻi Kai Transit Center / Park & Ride
+  "4523", // Kalihi Transit Center
+  "4416", // Kapolei Transit Center
+  "4419", // Mililani Transit Center
+  "4525", // Wahiawā Transit Center
+  "4406", // Waiʻanae Transit Center
+  "4421", // Waipahu Transit Center
+]);
+
+function StopMarkers({
+  stops,
+  selectedStopId,
+  onStopSelect,
+}: {
+  stops: StopLocation[];
+  selectedStopId?: string;
+  onStopSelect?: (stop: StopLocation) => void;
+}) {
+  const [, setViewportRevision] = useState(0);
+  const map = useMapEvents({
+    moveend: () => setViewportRevision((revision) => revision + 1),
+    zoomend: () => setViewportRevision((revision) => revision + 1),
+    resize: () => setViewportRevision((revision) => revision + 1),
+  });
+  const zoom = map.getZoom();
+
+  const visibleStops = (() => {
+    const bounds = map.getBounds().pad(0.08);
+    const inView = stops.filter((stop) => bounds.contains([stop.lat, stop.lng]));
+    if (zoom >= 16) return inView;
+
+    const cellSize =
+      zoom >= 15 ? 24 : zoom >= 14 ? 28 : zoom >= 13 ? 34 : 42;
+    const occupiedCells = new Set<string>();
+    const selected = inView.find((stop) => stop.id === selectedStopId);
+    const transitCenters = inView.filter(
+      (stop) =>
+        stop.id !== selectedStopId &&
+        OFFICIAL_TRANSIT_CENTER_STOP_IDS.has(stop.id),
+    );
+    const regularStops = inView.filter(
+      (stop) =>
+        stop.id !== selectedStopId &&
+        !OFFICIAL_TRANSIT_CENTER_STOP_IDS.has(stop.id),
+    );
+    const orderedStops = selected
+      ? [selected, ...transitCenters, ...regularStops]
+      : [...transitCenters, ...regularStops];
+
+    return orderedStops.filter((stop) => {
+      const point = map.latLngToContainerPoint([stop.lat, stop.lng]);
+      const cell = `${Math.floor(point.x / cellSize)}:${Math.floor(point.y / cellSize)}`;
+      if (occupiedCells.has(cell)) return false;
+      occupiedCells.add(cell);
+      return true;
+    });
+  })();
+
+  const useCompactMarkers = zoom < 16;
+
+  return visibleStops.map((stop) => {
+    const isSelected = stop.id === selectedStopId;
+    const isTransitCenter = OFFICIAL_TRANSIT_CENTER_STOP_IDS.has(stop.id);
+    const icon = isSelected
+      ? selectedStopIcon
+      : useCompactMarkers
+        ? isTransitCenter
+          ? transitCenterIcon
+          : compactStopIcon
+        : stopIcon;
+    return (
+      <Marker
+        key={stop.id}
+        position={[stop.lat, stop.lng]}
+        title={`${stop.name}, stop ${stop.id}`}
+        alt={`Bus stop ${stop.name}`}
+        icon={icon}
+        zIndexOffset={isSelected ? 1000 : isTransitCenter ? 500 : 0}
+        eventHandlers={{ click: () => onStopSelect?.(stop) }}
+      />
+    );
+  });
+}
 
 export function TransitMap({
   center,
@@ -81,17 +194,11 @@ export function TransitMap({
         </Marker>
       ) : null}
 
-      {stops.map((stopResult) => (
-        <Marker
-          key={stopResult.stop.id}
-          position={[stopResult.stop.lat, stopResult.stop.lng]}
-          title={`${stopResult.stop.name}, stop ${stopResult.stop.id}`}
-          alt={`Bus stop ${stopResult.stop.name}`}
-          icon={stopResult.stop.id === selectedStopId ? selectedStopIcon : stopIcon}
-          zIndexOffset={stopResult.stop.id === selectedStopId ? 1000 : 0}
-          eventHandlers={{ click: () => onStopSelect?.(stopResult) }}
-        />
-      ))}
+      <StopMarkers
+        stops={stops}
+        selectedStopId={selectedStopId}
+        onStopSelect={onStopSelect}
+      />
     </MapContainer>
   );
 }

@@ -5,10 +5,18 @@ import { MapView } from "@/components/map/MapView";
 import { NearbyStopsSheet } from "@/components/transit/NearbyStopsSheet";
 import { SearchOverlay } from "@/components/transit/SearchOverlay";
 import { SelectedStopSheet } from "@/components/transit/SelectedStopSheet";
-import { fetchNearbyStops } from "@/lib/api/transit";
+import {
+  fetchMapStops,
+  fetchNearbyStops,
+  fetchStopArrivals,
+} from "@/lib/api/transit";
 import { getLocationPreference } from "@/lib/onboarding";
+import {
+  haversineMeters,
+  walkMinutesFromMeters,
+} from "@/lib/thebus/stops";
 import { cn } from "@/lib/utils";
-import type { NearbyStopResult } from "@/types/transit";
+import type { NearbyStopResult, StopLocation } from "@/types/transit";
 
 const DEFAULT_CENTER: [number, number] = [21.3047, -157.8567];
 
@@ -16,7 +24,8 @@ export function HomeScreen() {
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [userLocation, setUserLocation] = useState<[number, number] | undefined>();
   const [sheetExpanded, setSheetExpanded] = useState(false);
-  const [selectedStop, setSelectedStop] = useState<NearbyStopResult | null>(null);
+  const [selectedStopLocation, setSelectedStopLocation] =
+    useState<StopLocation | null>(null);
 
   useEffect(() => {
     if (!getLocationPreference() || !navigator.geolocation) return;
@@ -46,9 +55,48 @@ export function HomeScreen() {
     queryFn: () => fetchNearbyStops(center[0], center[1]),
     staleTime: 30_000,
   });
+  const mapStopsQuery = useQuery({
+    queryKey: ["map-stops"],
+    queryFn: fetchMapStops,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   const data = nearbyQuery.data;
   const stops = data?.stops ?? [];
+  const nearbySelectedStop = selectedStopLocation
+    ? stops.find((stop) => stop.stop.id === selectedStopLocation.id)
+    : undefined;
+  const selectedStopQuery = useQuery({
+    queryKey: ["stop-arrivals", selectedStopLocation?.id ?? ""],
+    queryFn: () => fetchStopArrivals(selectedStopLocation!.id),
+    enabled: Boolean(selectedStopLocation && !nearbySelectedStop),
+    staleTime: 30_000,
+  });
+  const selectedStopDistance = selectedStopLocation
+    ? haversineMeters(
+        center[0],
+        center[1],
+        selectedStopLocation.lat,
+        selectedStopLocation.lng,
+      )
+    : 0;
+  const selectedStop: NearbyStopResult | null = selectedStopLocation
+    ? nearbySelectedStop ?? {
+        stop: selectedStopLocation,
+        distanceMeters: selectedStopDistance,
+        walkMinutes: walkMinutesFromMeters(selectedStopDistance),
+        lines: selectedStopQuery.data?.lines ?? [],
+        arrivals: selectedStopQuery.data?.arrivals ?? [],
+        nextArrival: selectedStopQuery.data?.arrivals[0],
+        dataUpdatedAt: selectedStopQuery.data?.fetchedAt,
+        error:
+          selectedStopQuery.error instanceof Error
+            ? selectedStopQuery.error.message
+            : undefined,
+      }
+    : null;
+  const mapStops =
+    mapStopsQuery.data?.stops ?? stops.map((stopResult) => stopResult.stop);
   const error =
     data?.error ??
     (nearbyQuery.error instanceof Error
@@ -58,7 +106,7 @@ export function HomeScreen() {
         : null);
 
   return (
-    <AppShell hideBottomNav={Boolean(selectedStop)}>
+    <AppShell hideBottomNav={Boolean(selectedStopLocation)}>
       <div
         className={cn(
           "home-screen",
@@ -69,10 +117,10 @@ export function HomeScreen() {
         <div className="home-screen__map" aria-hidden={false}>
           <MapView
             center={center}
-            stops={stops}
-            selectedStopId={selectedStop?.stop.id}
+            stops={mapStops}
+            selectedStopId={selectedStopLocation?.id}
             userLocation={userLocation}
-            onStopSelect={setSelectedStop}
+            onStopSelect={setSelectedStopLocation}
           />
         </div>
 
@@ -81,7 +129,12 @@ export function HomeScreen() {
         {selectedStop ? (
           <SelectedStopSheet
             stopResult={selectedStop}
-            onClose={() => setSelectedStop(null)}
+            loading={Boolean(
+              selectedStopLocation &&
+                !nearbySelectedStop &&
+                selectedStopQuery.isPending,
+            )}
+            onClose={() => setSelectedStopLocation(null)}
           />
         ) : (
           <NearbyStopsSheet

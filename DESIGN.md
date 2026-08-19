@@ -1,6 +1,6 @@
 # Holo Hele Design System
 
-**Version:** 1.9 (Saved disruption examples)
+**Version:** 2.0 (Island-wide stop map)
 **Figma reference:** `TheBus_V1` — Home expanded `1:568`, Stop Information `1:1735`, Route Interaction `1:1698`  
 **Code tokens:** `src/styles.css` (imports the canonical token definitions)
 
@@ -136,7 +136,9 @@ Headings (`h1–h3`) use weight **700** globally. Transit row titles use **500**
 
 ## Elevation
 
-**Flat UI — no drop shadows on app components.**
+**Flat UI — no drop shadows on app components.** The selected Home map stop is
+the intentional exception: it uses a primary-blue glow to remain visible over
+the basemap without adding a second selection ring.
 
 | Figma | Holo Hele |
 |-------|-----------|
@@ -217,12 +219,18 @@ Sheet expanded/collapsed and selected-stop states live in `HomeScreen` and drive
 | Tiles | CARTO Light (`light_all`) — neutral gray streets, not Figma static screenshot |
 | Default zoom | 15 |
 | User location | 14px brand-blue dot, 3px white border, soft blue halo |
-| Stop markers | 36px white circle with brand-blue border and bus icon; tap → selected-stop sheet |
+| Stop markers | Below zoom 16: compact white/blue stop dots, thinned by screen grid; verified representative stops at official transit centers are prioritized as 28px white/blue bus icons, while colliding centers still obey grid thinning. Zoom 16+: 36px white circle with brand-blue border and bus icon. Tap → selected-stop sheet; selected marker keeps the same size and uses a `0 0 12px` primary-blue glow with no tinted outer ring |
 | Controls | Custom (Leaflet zoom disabled); see [Map controls](#map-controls) |
 
 Home uses the official active GTFS feed for nearby stop locations and scheduled
 services. When the TheBus API key is configured, the closest stops are enriched
 with live arrivals; scheduled times remain visually distinct from estimates.
+The map loads the complete official Oʻahu stop list once, but renders only stops
+inside the current viewport. At wider zooms it keeps one compact marker per
+screen grid cell to prevent overlap and excessive DOM work; neighborhood zoom
+16 shows every visible stop with the full marker. Selecting a marker outside the
+nearby set requests that stop's arrivals on demand instead of preloading service
+data for the entire island.
 
 ### Search overlay
 
@@ -705,3 +713,4 @@ When updating Figma, align frames to this table — not the other way around.
 | 2026-08-16 | v1.8 — Required route-plus-stop matching for bus alerts, clarified whole versus route-specific stop closures, added semantic yellow/red alert colors, and introduced single-alert detail pages |
 | 2026-08-17 | v1.9 — Added two persistent saved-stop disruption examples with live-notice precedence and labeled demo fallbacks; kept route-only alert entries out of Buses |
 | 2026-08-18 | v1.9 — Extended the Stop 1712 and Stop 1016 demo states to top-positioned stop-detail alert blades with specific View explanations |
+| 2026-08-19 | v2.0 — Added all official Oʻahu GTFS stops to Home with viewport filtering, zoom-aware compact markers, and on-demand selected-stop service loading |

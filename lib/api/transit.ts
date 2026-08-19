@@ -1,5 +1,6 @@
 import type {
   NearbyStopsResponse,
+  MapStopsResponse,
   DailyStopScheduleResponse,
   RouteScheduleResponse,
   ScheduleDay,
@@ -54,6 +55,10 @@ export function fetchTracking(
 ): Promise<TrackingResponse> {
   const search = new URLSearchParams({ stop: stopId, arrival: arrivalId });
   return getJson(`/api/tracking?${search}`, "Unable to load bus tracking.");
+}
+
+export function fetchMapStops(): Promise<MapStopsResponse> {
+  return getJson("/api/stops", "Unable to load island-wide bus stops.");
 }
 
 export function fetchStopLocation(stopId: string): Promise<{ stop: StopLocation }> {
