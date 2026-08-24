@@ -19,7 +19,7 @@ export function FigmaIcon({
       alt={alt}
       width={size}
       height={size}
-      className={className}
+      className={`object-contain ${className}`}
       aria-hidden={alt ? undefined : true}
     />
   );
@@ -106,7 +106,11 @@ export function BusStopSignIcon() {
       className="flex h-[29px] w-[33px] items-center justify-center rounded-[4px] border border-b-[3px] border-ink p-1.5"
       aria-hidden="true"
     >
-      <FigmaIcon name="busStopSign" size={17} className="h-[17px] w-[21px]" />
+      <FigmaIcon
+        name="nearbyBusStopSign"
+        size={17}
+        className="h-[17px] w-[21px]"
+      />
     </div>
   );
 }

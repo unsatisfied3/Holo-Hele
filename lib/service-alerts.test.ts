@@ -57,8 +57,8 @@ describe("exact service alert matching", () => {
     expect(
       getAlertPresentationTone(
         alert({
-          title: "Route 1L is temporarily skipping this stop.",
-          description: "Route 1L is temporarily not serving Stop 437.",
+          title: "Line 1L is temporarily skipping this stop.",
+          description: "Line 1L is temporarily not serving Stop 437.",
           type: "stop-skipped",
           affectedRoutes: ["1L"],
           affectedStops: ["437"],
@@ -161,8 +161,8 @@ describe("exact service alert matching", () => {
     expect(alertAffectsBusAtStop(route1LSkippedStop, "C", "437")).toBe(false);
     expect(alertAffectsBusAtStop(route1LSkippedStop, "1L", "848")).toBe(false);
     expect(getAlertNotificationCopy(route1LSkippedStop)).toEqual({
-      title: "Route 1L skipping Stop 437",
-      body: "Route 1L is temporarily not serving this stop. Other routes may continue normally.",
+      title: "Line 1L skipping Stop 437",
+      body: "Line 1L is temporarily not serving this stop. Other lines may continue normally.",
     });
   });
 
@@ -186,7 +186,7 @@ describe("exact service alert matching", () => {
         }),
         "437",
       ),
-    ).toBe("Routes 1L and C are temporarily skipping this stop.");
+    ).toBe("Lines 1L and C are temporarily skipping this stop.");
     expect(
       getStopAlertLabel(
         alert({
@@ -196,7 +196,7 @@ describe("exact service alert matching", () => {
         }),
         "437",
       ),
-    ).toBe("Route 1L is temporarily skipping this stop.");
+    ).toBe("Line 1L is temporarily skipping this stop.");
   });
 
   test("uses compact impact labels in favorite stops", () => {
@@ -234,7 +234,7 @@ describe("exact service alert matching", () => {
     expect(weatherPreview?.source).toBe("holohele-demo");
     expect(weatherPreview?.affectedRoutes).toEqual(["65"]);
     expect(getStopAlertLabel(weatherPreview!, "1712")).toBe(
-      "Weather is affecting Route 65 service near this stop.",
+      "Weather is affecting Line 65 service near this stop.",
     );
     expect(closurePreview?.source).toBe("holohele-demo");
     expect(closurePreview?.type).toBe("stop-closure");

@@ -1,5 +1,7 @@
 "use client";
 
+import { Link } from "@tanstack/react-router";
+
 import type { NearbyStopResult } from "@/types/transit";
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { RouteArrivalRow } from "@/components/transit/RouteArrivalRow";
@@ -88,7 +90,14 @@ export function NearbyStopsSheet({
                   </li>
                 ) : (
                   <li key={`arrival-${item.stopId}-${item.arrival.id}`}>
-                    <RouteArrivalRow arrival={item.arrival} />
+                    <Link
+                      to="/stops/$id/track/$arrivalId"
+                      params={{ id: item.stopId, arrivalId: item.arrival.id }}
+                      aria-label={`Track Route ${item.arrival.route} to ${item.arrival.headsign}`}
+                      className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                    >
+                      <RouteArrivalRow arrival={item.arrival} />
+                    </Link>
                   </li>
                 ),
               )}

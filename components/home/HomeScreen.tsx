@@ -10,7 +10,7 @@ import {
   fetchNearbyStops,
   fetchStopArrivals,
 } from "@/lib/api/transit";
-import { getLocationPreference } from "@/lib/onboarding";
+import { canUseLocationWithoutPrompt } from "@/lib/onboarding";
 import {
   haversineMeters,
   walkMinutesFromMeters,
@@ -28,26 +28,36 @@ export function HomeScreen() {
     useState<StopLocation | null>(null);
 
   useEffect(() => {
-    if (!getLocationPreference() || !navigator.geolocation) return;
+    let watchId: number | undefined;
+    let disposed = false;
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const location: [number, number] = [
-          position.coords.latitude,
-          position.coords.longitude,
-        ];
-        setCenter(location);
-        setUserLocation(location);
-      },
-      () => setCenter(DEFAULT_CENTER),
-      {
-        enableHighAccuracy: true,
-        maximumAge: 30_000,
-        timeout: 10_000,
-      },
-    );
+    async function startLocationWatch() {
+      if (!(await canUseLocationWithoutPrompt()) || disposed) return;
 
-    return () => navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const location: [number, number] = [
+            position.coords.latitude,
+            position.coords.longitude,
+          ];
+          setCenter(location);
+          setUserLocation(location);
+        },
+        () => setCenter(DEFAULT_CENTER),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 30_000,
+          timeout: 10_000,
+        },
+      );
+    }
+
+    void startLocationWatch();
+
+    return () => {
+      disposed = true;
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   const nearbyQuery = useQuery({

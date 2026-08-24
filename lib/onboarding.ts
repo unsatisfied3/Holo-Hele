@@ -32,6 +32,31 @@ export function saveLocationPreference(enabled: boolean): void {
   window.localStorage.setItem(LOCATION_KEY, String(enabled));
 }
 
+/**
+ * Passive screens may use location only after the rider has already granted
+ * browser permission. Permission prompts belong to explicit onboarding or
+ * Settings actions, not routine navigation.
+ */
+export async function canUseLocationWithoutPrompt(): Promise<boolean> {
+  if (
+    typeof navigator === "undefined" ||
+    !getLocationPreference() ||
+    !navigator.geolocation ||
+    !navigator.permissions
+  ) {
+    return false;
+  }
+
+  try {
+    const permission = await navigator.permissions.query({
+      name: "geolocation",
+    });
+    return permission.state === "granted";
+  } catch {
+    return false;
+  }
+}
+
 export function resetOnboarding(): void {
   window.localStorage.removeItem(ONBOARDING_KEY);
   window.localStorage.removeItem(LANGUAGE_KEY);

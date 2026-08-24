@@ -11,14 +11,22 @@ import { estimateStopsAway } from "@/lib/tracking/route-visualization";
 import {
   getGtfsNearbyStops,
   getGtfsStops,
+  getGtfsTripPlan,
   getGtfsDailyStopSchedule,
   getGtfsRouteSchedule,
   getGtfsStop,
   getGtfsStopSchedule,
   getGtfsTrackingRoute,
+  searchGtfsStops,
 } from "@/server/gtfs";
 import { getServiceAlerts } from "@/server/service-alerts";
-import type { NearbyStopResult, TrackingRouteStop } from "@/types/transit";
+import type {
+  JourneyCoordinate,
+  JourneyOption,
+  NearbyStopResult,
+  TrackingRouteStop,
+  TripPlanResponse,
+} from "@/types/transit";
 
 const DEFAULT_LAT = 21.3047;
 const DEFAULT_LNG = -157.8567;
@@ -335,6 +343,230 @@ async function tracking(url: URL, origin: string | null): Promise<Response> {
   );
 }
 
+function nearestJourneyPathIndex(
+  path: JourneyCoordinate[],
+  coordinate: JourneyCoordinate,
+): number {
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  path.forEach(([lat, lng], index) => {
+    const distance = (lat - coordinate[0]) ** 2 + (lng - coordinate[1]) ** 2;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+  return nearestIndex;
+}
+
+function shiftDisplayTime(time: string, minutesToAdd: number): string {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return time;
+  let hours = Number(match[1]) % 12;
+  const minutes = Number(match[2]);
+  if (match[3].toLocaleUpperCase() === "PM") hours += 12;
+  const shifted = (hours * 60 + minutes + minutesToAdd + 24 * 60) % (24 * 60);
+  const shiftedHour = Math.floor(shifted / 60);
+  const suffix = shiftedHour >= 12 ? "PM" : "AM";
+  return `${shiftedHour % 12 || 12}:${String(shifted % 60).padStart(2, "0")} ${suffix}`;
+}
+
+function enrichPlannedJourney(
+  journey: JourneyOption,
+  result: Awaited<ReturnType<typeof fetchStopArrivals>>,
+): { journey: JourneyOption; failed: boolean } {
+  if (result.error) return { journey, failed: true };
+  const liveArrival = result.arrivals.find(
+    (arrival) =>
+      arrival.estimated &&
+      arrival.trip != null &&
+      arrival.trip === journey.tripId,
+  );
+  if (!liveArrival) return { journey, failed: false };
+  const etaMinutes = liveArrival.minutesUntil;
+  if (etaMinutes == null || etaMinutes < journey.walkStartMinutes) {
+    return { journey, failed: false };
+  }
+
+  const vehiclePosition =
+    liveArrival.latitude != null && liveArrival.longitude != null
+      ? ([liveArrival.latitude, liveArrival.longitude] as JourneyCoordinate)
+      : journey.simulation.transitPosition;
+  const approachPath = journey.path.approach;
+  const approachIndex = approachPath?.length
+    ? nearestJourneyPathIndex(approachPath, vehiclePosition)
+    : 0;
+  const scheduledWaitMinutes = Math.max(
+    journey.walkStartMinutes,
+    journey.travelMinutes - journey.rideMinutes - journey.walkEndMinutes,
+  );
+  const delayMinutes = etaMinutes - scheduledWaitMinutes;
+
+  return {
+    failed: false,
+    journey: {
+      ...journey,
+      dataSource: "live",
+      etaMinutes,
+      scheduleDeviationMinutes: delayMinutes,
+      travelMinutes: etaMinutes + journey.rideMinutes + journey.walkEndMinutes,
+      boardStop: {
+        ...journey.boardStop,
+        time: liveArrival.stopTime || journey.boardStop.time,
+      },
+      alightStop: {
+        ...journey.alightStop,
+        time: shiftDisplayTime(journey.alightStop.time, delayMinutes),
+      },
+      destination: {
+        ...journey.destination,
+        time: shiftDisplayTime(journey.destination.time, delayMinutes),
+      },
+      path: {
+        ...journey.path,
+        approach: approachPath?.length
+          ? [vehiclePosition, ...approachPath.slice(approachIndex + 1)]
+          : undefined,
+      },
+      simulation: {
+        ...journey.simulation,
+        transitPosition: vehiclePosition,
+        transitPathIndex: nearestJourneyPathIndex(
+          journey.path.transit,
+          vehiclePosition,
+        ),
+      },
+    },
+  };
+}
+
+async function tripPlan(url: URL, origin: string | null): Promise<Response> {
+  const originLat = parseCoordinate(url.searchParams, "lat", Number.NaN);
+  const originLng = parseCoordinate(url.searchParams, "lng", Number.NaN);
+  const destinationLatRaw = url.searchParams.get("destinationLat");
+  const destinationLngRaw = url.searchParams.get("destinationLng");
+  const destinationLat = destinationLatRaw?.trim()
+    ? Number(destinationLatRaw)
+    : Number.NaN;
+  const destinationLng = destinationLngRaw?.trim()
+    ? Number(destinationLngRaw)
+    : Number.NaN;
+  const destinationName = url.searchParams.get("destination")?.trim();
+  const destinationDetail = url.searchParams.get("destinationDetail")?.trim() ?? "";
+  const originName = url.searchParams.get("origin")?.trim() || "Current location";
+  const departureOffsetMinutes = Number(
+    url.searchParams.get("departureOffsetMinutes") ?? "0",
+  );
+  const timeModeRaw = url.searchParams.get("timeMode") ?? "now";
+  const timeMode =
+    timeModeRaw === "leave" || timeModeRaw === "arrive" ? timeModeRaw : "now";
+  const requestedTimeRaw = url.searchParams.get("requestedTime");
+  const requestedTime = requestedTimeRaw ? new Date(requestedTimeRaw) : null;
+
+  if (
+    originLat == null ||
+    originLng == null ||
+    !Number.isFinite(originLat) ||
+    !Number.isFinite(originLng) ||
+    !Number.isFinite(destinationLat) ||
+    Math.abs(destinationLat) > 90 ||
+    !Number.isFinite(destinationLng) ||
+    Math.abs(destinationLng) > 180 ||
+    !destinationName ||
+    !Number.isFinite(departureOffsetMinutes) ||
+    departureOffsetMinutes < 0 ||
+    departureOffsetMinutes > 240 ||
+    !["now", "leave", "arrive"].includes(timeModeRaw) ||
+    (timeMode !== "now" &&
+      (!requestedTime || !Number.isFinite(requestedTime.getTime())))
+  ) {
+    return json({ error: "Trip origin or destination is invalid." }, 400, origin);
+  }
+
+  let scheduledPlan: TripPlanResponse;
+  try {
+    const planningTime =
+      timeMode === "now"
+        ? new Date(Date.now() + departureOffsetMinutes * 60_000)
+        : (requestedTime as Date);
+    scheduledPlan = await getGtfsTripPlan({
+      origin: {
+        name: originName,
+        detail: "Approximate device location",
+        lat: originLat,
+        lng: originLng,
+      },
+      destination: {
+        name: destinationName,
+        detail: destinationDetail,
+        lat: destinationLat,
+        lng: destinationLng,
+      },
+      planningTime,
+      arriveBy: timeMode === "arrive",
+    });
+  } catch {
+    return json(
+      { error: "Official trip-planning data is temporarily unavailable." },
+      502,
+      origin,
+    );
+  }
+
+  const apiKey = getTheBusApiKey();
+  if (
+    !apiKey ||
+    scheduledPlan.journeys.length === 0 ||
+    departureOffsetMinutes > 0 ||
+    timeMode !== "now"
+  ) {
+    return json(scheduledPlan, 200, origin);
+  }
+
+  const boardingStopIds = [
+    ...new Set(scheduledPlan.journeys.map((journey) => journey.boardStop.id)),
+  ];
+  const liveResults = new Map(
+    await Promise.all(
+      boardingStopIds.map(async (stopId) => [
+        stopId,
+        await fetchStopArrivals(stopId, apiKey),
+      ] as const),
+    ),
+  );
+  const enriched = scheduledPlan.journeys.map((journey) =>
+    enrichPlannedJourney(
+      journey,
+      liveResults.get(journey.boardStop.id) ?? {
+        arrivals: [],
+        error: "Live estimates are unavailable.",
+      },
+    ),
+  );
+  const journeys = enriched
+    .map((result) => result.journey)
+    .sort(
+      (first, second) =>
+        first.travelMinutes - second.travelMinutes ||
+        first.walkStartMinutes - second.walkStartMinutes,
+    );
+  const hasLiveJourney = journeys.some((journey) => journey.dataSource === "live");
+  const liveFailed = enriched.some((result) => result.failed);
+
+  return json(
+    {
+      ...scheduledPlan,
+      journeys,
+      dataSource: hasLiveJourney ? ("live" as const) : ("scheduled" as const),
+      ...(liveFailed
+        ? { error: "Some live estimates are unavailable. Scheduled times are shown." }
+        : {}),
+    },
+    200,
+    origin,
+  );
+}
+
 async function mapStops(origin: string | null): Promise<Response> {
   try {
     return json(
@@ -349,6 +581,32 @@ async function mapStops(origin: string | null): Promise<Response> {
   } catch {
     return json(
       { error: "Official island-wide stop data is temporarily unavailable." },
+      502,
+      origin,
+    );
+  }
+}
+
+async function searchStops(url: URL, origin: string | null): Promise<Response> {
+  const query = url.searchParams.get("q")?.trim() ?? "";
+  if (!query) return json({ error: "Missing search query." }, 400, origin);
+  if (query.length > 80) {
+    return json({ error: "Search query is too long." }, 400, origin);
+  }
+
+  try {
+    return json(
+      {
+        stops: await searchGtfsStops(query),
+        fetchedAt: new Date().toISOString(),
+        dataSource: "scheduled" as const,
+      },
+      200,
+      origin,
+    );
+  } catch {
+    return json(
+      { error: "Official stop search is temporarily unavailable." },
       502,
       origin,
     );
@@ -467,9 +725,11 @@ const server = Bun.serve({
     }
     if (url.pathname === "/api/nearby") return nearby(url, origin);
     if (url.pathname === "/api/stops") return mapStops(origin);
+    if (url.pathname === "/api/search-stops") return searchStops(url, origin);
     if (url.pathname === "/api/stop") return stopLocation(url, origin);
     if (url.pathname === "/api/arrivals") return arrivals(url, origin);
     if (url.pathname === "/api/tracking") return tracking(url, origin);
+    if (url.pathname === "/api/trip-plan") return tripPlan(url, origin);
     if (url.pathname === "/api/route-schedule") {
       return routeSchedule(url, origin);
     }

@@ -65,12 +65,9 @@ export function SelectedStopSheet({
             const arrival = arrivals.find((item) => item.route === line);
             const routeTime = formatRouteTime(arrival);
             const isArrivingNow = arrival?.estimated && arrival.minutesUntil === 0;
-            return (
-              <li
-                key={line}
-                aria-label={`Route ${line}, ${arrival?.estimated ? "arriving" : "scheduled"} ${routeTime}`}
-                className="flex min-h-8 min-w-0 items-center gap-1 rounded-[2px] bg-canvas-softer p-1"
-              >
+            const label = `Route ${line}, ${arrival?.estimated ? "arriving" : "scheduled"} ${routeTime}`;
+            const content = (
+              <>
                 <span
                   aria-hidden="true"
                   className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-[2px] bg-brand-blue px-1 text-[0.8125rem] font-bold leading-none text-on-primary"
@@ -85,6 +82,32 @@ export function SelectedStopSheet({
                 >
                   {routeTime}
                 </span>
+              </>
+            );
+            const tileClassName =
+              "flex min-h-8 min-w-0 items-center gap-1 rounded-[2px] bg-canvas-softer p-1 transition-colors hover:bg-canvas-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+
+            return (
+              <li key={line}>
+                {arrival ? (
+                  <Link
+                    to="/stops/$id/track/$arrivalId"
+                    params={{ id: stop.id, arrivalId: arrival.id }}
+                    aria-label={`Track ${label}`}
+                    className={tileClassName}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/schedule"
+                    search={{ stop: stop.id, route: line }}
+                    aria-label={`View schedule for ${label}`}
+                    className={tileClassName}
+                  >
+                    {content}
+                  </Link>
+                )}
               </li>
             );
           })}

@@ -272,6 +272,28 @@ h3 {
   display: none;
 }
 
+.time-wheel {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 24%,
+    black 76%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 24%,
+    black 76%,
+    transparent
+  );
+}
+
+.time-wheel::-webkit-scrollbar {
+  display: none;
+}
+
 .tracking-map .leaflet-bottom {
   bottom: calc(12.5rem + max(env(safe-area-inset-bottom), 1rem));
 }

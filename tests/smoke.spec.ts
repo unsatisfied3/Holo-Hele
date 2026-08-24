@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { JOURNEY_OPTIONS } from "@/lib/mock/journeys";
+
 test("onboarding and transit routes render at mobile width", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -43,18 +45,18 @@ test("onboarding and transit routes render at mobile width", async ({ page }) =>
   await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
   await expect(page.locator(".map-stop-marker--selected")).toHaveCount(1);
   await expect(page.getByRole("link", { name: "Arrivals" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Track Route|View schedule for Route/ }).first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Close stop details" }).click();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await page.getByRole("button", { name: "Nearby Stops" }).click();
   await expect(page.getByText(/Updated /)).toBeVisible();
+  await expect(page.getByRole("link", { name: /Track Route/ }).first()).toBeVisible();
 
-  await page
-    .getByRole("link", {
-      name: "View stop S Beretania St + Pali Hwy + Bishop St",
-    })
-    .click();
+  await page.getByRole("link", { name: /^View stop / }).first().click();
   await expect(page.getByRole("heading", { name: "Stop", exact: true })).toBeVisible();
-  await expect(page.getByText("S Beretania St + Pali Hwy + Bishop St")).toBeVisible();
+  await expect(page).toHaveURL(/\/stops\/\d+/);
 
   expect(pageErrors).toEqual([]);
 });
@@ -282,9 +284,120 @@ test("settings persist language and location preferences", async ({ page }) => {
     .toBe("false");
 });
 
+test("passive trip screens do not prompt for undecided location permission", async ({
+  context,
+  page,
+}) => {
+  await context.clearPermissions();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: () => {
+          window.sessionStorage.setItem("location-requested", "true");
+        },
+        watchPosition: () => {
+          window.sessionStorage.setItem("location-requested", "true");
+          return 1;
+        },
+        clearWatch: () => undefined,
+      },
+    });
+  });
+  await page.route("**/api/trip-plan?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        journeys: [],
+        origin: {
+          name: "Downtown Honolulu preview",
+          detail: "Downtown Honolulu preview",
+          coordinate: [21.3047, -157.8567],
+        },
+        destination: {
+          name: "Ala Moana Center",
+          detail: "1450 Ala Moana Blvd, Honolulu, HI 96814",
+          coordinate: [21.29072, -157.84278],
+        },
+        fetchedAt: new Date().toISOString(),
+        dataSource: "scheduled",
+      },
+    });
+  });
+
+  await page.goto("/home");
+  await expect(page.getByRole("searchbox", { name: "Search destination" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.sessionStorage.getItem("location-requested")))
+    .toBeNull();
+
+  await page.goto(
+    "/plan?destination=Ala+Moana+Center&destinationLat=21.29072&destinationLng=-157.84278",
+  );
+
+  await expect(page.getByText("Downtown Honolulu preview", { exact: true })).toBeVisible();
+  await expect(page.getByText(/using a downtown preview origin/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No direct trip found" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.sessionStorage.getItem("location-requested")))
+    .toBeNull();
+});
+
+test("trip planning unavailable state offers recovery and a labeled preview", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("holo-hele-use-location", "false");
+  });
+  await page.route("**/api/trip-plan?*", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      json: { error: "Trip planning is temporarily unavailable." },
+    });
+  });
+  await page.route("**/api/alerts*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        alerts: [],
+        fetchedAt: new Date().toISOString(),
+        sourceUrl: "https://www.thebus.org/",
+        status: "live",
+        cached: false,
+      },
+    });
+  });
+
+  await page.goto(
+    "/plan?destination=Ala+Moana+Center&destinationLat=21.29072&destinationLng=-157.84278",
+  );
+
+  await expect(
+    page.getByRole("heading", { name: "Current trips are temporarily unavailable" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByText("Simulated preview").first()).toBeVisible();
+});
+
 test("search flows through trip options, directions, and live guidance", async ({
   page,
 }) => {
+  const tripRequestModes: string[] = [];
+  const tripRequestedTimes: string[] = [];
+  const liveJourney = {
+    ...JOURNEY_OPTIONS[0],
+    id: "gtfs-smoke-42-131-761",
+    tripId: "smoke-42",
+    dataSource: "live" as const,
+    scheduleDeviationMinutes: 4,
+    origin: {
+      ...JOURNEY_OPTIONS[0].origin,
+      name: "Downtown Honolulu preview",
+      detail: "Approximate device location",
+    },
+  };
+
   await page.route("**/api/nearby?*", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -297,37 +410,194 @@ test("search flows through trip options, directions, and live guidance", async (
     });
   });
 
+  await page.route("**/api/trip-plan?*", async (route) => {
+    const requestUrl = new URL(route.request().url());
+    tripRequestModes.push(requestUrl.searchParams.get("timeMode") ?? "");
+    tripRequestedTimes.push(requestUrl.searchParams.get("requestedTime") ?? "");
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        journeys: [liveJourney],
+        origin: liveJourney.origin,
+        destination: liveJourney.destination,
+        fetchedAt: new Date().toISOString(),
+        dataSource: "live",
+      },
+    });
+  });
+
+  await page.route("**/api/alerts*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        alerts: [
+          {
+            id: "smoke-route-42-detour",
+            title: "Route 42 detour in effect",
+            description: "Route 42 is using a temporary routing near the destination.",
+            affectedRoutes: ["42"],
+            affectedStops: [],
+            systemWide: false,
+            type: "detour",
+            severity: "warning",
+            source: "thebus-live",
+            isLive: true,
+          },
+        ],
+        fetchedAt: new Date().toISOString(),
+        sourceUrl: "https://www.thebus.org/",
+        status: "live",
+        cached: false,
+      },
+    });
+  });
+
+  await page.route("**/api/search-stops?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        stops: [
+          {
+            id: "953",
+            name: "ALA MOANA BL + AHUI ST",
+            lat: 21.295348,
+            lng: -157.85873,
+            kind: "stop",
+            lines: ["42", "60", "65", "67", "88A"],
+          },
+        ],
+        fetchedAt: new Date().toISOString(),
+        dataSource: "scheduled",
+      },
+    });
+  });
+
   await page.goto("/home");
   await page.getByRole("searchbox", { name: "Search destination" }).click();
   await expect(page).toHaveURL(/\/search$/);
   const search = page.getByRole("searchbox", {
     name: "Search buses, stops, and places",
   });
-  await search.fill("Ala Moana");
+  await search.fill("Ala");
 
   await expect(page.getByRole("heading", { name: "Buses" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Stops" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Places" })).toBeVisible();
+  await expect(page.getByText("Stop 953")).toBeVisible();
+  await expect(page.getByText("Lines: 42, 60, 65, 67, 88A")).toBeVisible();
   await page
     .getByRole("button", { name: /^Ala Moana Center 1450/ })
     .click();
 
   await expect(page).toHaveURL(/\/plan\?destination=Ala(\+|%20)Moana/);
   await expect(
-    page.getByRole("heading", { name: "Recommended Route" }),
+    page.getByRole("heading", { name: "Trip options" }),
   ).toBeVisible();
-  await expect(page.getByText(/trip planning data is currently simulated/i)).toBeVisible();
-
+  await expect(page.getByText("Delayed · In 3 min", { exact: true })).toBeVisible();
+  await expect(page.getByText("Route 42 detour in effect")).toBeVisible();
+  await page.getByRole("button", { name: /^Leave by / }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Choose trip time" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Leave", exact: true, pressed: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Now", exact: true })).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Date", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Date", exact: true }).click();
+  await expect(page.getByRole("radiogroup", { name: "Trip date" })).toBeVisible();
+  await page.getByRole("radio", { name: /Tomorrow/ }).click();
+  await expect(page.getByRole("button", { name: "Now", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Time", exact: true }).click();
   await page
-    .getByRole("link")
-    .filter({ hasText: "Travel Time: 14 min" })
+    .getByRole("listbox", { name: "Hour" })
+    .getByRole("option", { name: "10", exact: true })
     .click();
-  await expect(page.getByRole("heading", { name: "Direction" })).toBeVisible();
-  await expect(page.getByText("S King St + Alakea St")).toBeVisible();
+  await page
+    .getByRole("listbox", { name: "Minute" })
+    .getByRole("option", { name: "30", exact: true })
+    .click();
+  await page
+    .getByRole("listbox", { name: "AM or PM" })
+    .getByRole("option", { name: "PM", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(
+    page.getByRole("button", { name: "Leave by 10:30 PM" }),
+  ).toBeVisible();
+  await expect.poll(() => tripRequestModes).toContain("leave");
+  await expect.poll(() => tripRequestedTimes.some(Boolean)).toBe(true);
+  await page.getByRole("button", { name: "Leave by 10:30 PM" }).click();
+  await page.getByRole("button", { name: "Now", exact: true }).click();
+  await expect(page.getByRole("listbox", { name: "Hour" })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Minute" })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "AM or PM" })).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: /^Leave by / })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Leave by 10:30 PM" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: /^Leave by / }).click();
+  await expect(
+    page.getByRole("button", { name: "Leave", exact: true, pressed: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: /Filter by/ }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Fewest transfers" })
+    .click();
+  await page.getByRole("button", { name: /Filter by/ }).click();
+  await expect(
+    page.getByRole("menuitemradio", {
+      name: "Fewest transfers",
+      checked: true,
+    }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: /14 minute trip.*Route 42/ }).click();
+  await expect(page.getByRole("heading", { name: "Trip Details" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Trip route overview" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Trip itinerary" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trip itinerary" })).toHaveCount(0);
+  await expect(page.getByText("Waikīkī Beach & Hotels", { exact: true })).toBeVisible();
+  await expect(page.getByText("Starting point", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Approximate device location")).toHaveCount(0);
+  await expect(page.getByText(/preview to Ala Moana Center/)).toHaveCount(0);
+  await expect(page.getByText("Stop 131")).toHaveCount(0);
+  const walkDirections = page.getByRole("button", {
+    name: /Walk About 2 min, 160 m/,
+  });
+  await expect(walkDirections).toHaveAttribute("aria-expanded", "false");
+  await walkDirections.click();
+  await expect(
+    page.getByText(/Approximate walking directions/).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Head southwest on S King Street toward Punchbowl Street."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Destination: S King St + Punchbowl St"),
+  ).toBeVisible();
+  const rideStops = page.getByRole("button", {
+    name: /Waikīkī Beach & Hotels Ride 5 stops · 8 min/,
+  });
+  await rideStops.click();
+  await expect(
+    page.getByText("S King St + Punchbowl St", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Ala Moana Blvd + Ala Moana Center", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Trip Details" })).toBeVisible();
 
   await page.getByRole("button", { name: "Start" }).click();
   await expect(page.getByRole("heading", { name: "Live Direction" })).toBeVisible();
-  await expect(page.getByText("Pali Hwy + S Beretania St")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Walk 2 minutes to/ })).toBeVisible();
+  await page.getByRole("button", { name: /I’m on the bus/ }).click();
+  await expect(page.getByRole("heading", { name: "Get off in 5 stops" })).toBeVisible();
+  await expect(page.locator(".journey-user-marker")).toBeVisible();
+  await expect(page.locator(".journey-direction-arrow")).toBeVisible();
 });
 
 test("route search opens the Hawaiʻi Kai scheduled route", async ({ page }) => {
@@ -393,13 +663,14 @@ test("route search opens the Hawaiʻi Kai scheduled route", async ({ page }) => 
     .click();
 
   await expect(page).toHaveURL(/\/routes\/1l-hawaii-kai$/);
-  await expect(page.getByRole("heading", { name: "Route" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Route", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("region", { name: "Route map" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Route stops" })).toBeVisible();
-  await expect(page.getByText("Hawaiʻi Kai Park & Ride")).toBeVisible();
-  await expect(page.locator(".leaflet-marker-icon")).toHaveCount(2);
-
-  const routeMap = page.getByRole("region", { name: "Route map" });
-  await routeMap.dblclick();
+  await expect(
+    page.getByText("Hawaiʻi Kai Park & Ride", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".leaflet-marker-icon")).toHaveCount(3);
   await expect(page.locator(".route-map__intermediate-stop")).toHaveCount(1);
 });

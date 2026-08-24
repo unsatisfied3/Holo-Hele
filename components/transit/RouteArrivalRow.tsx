@@ -8,7 +8,7 @@ interface RouteArrivalRowProps {
 
 export function RouteArrivalRow({ arrival }: RouteArrivalRowProps) {
   return (
-    <article className="flex h-[67px] items-center gap-3 bg-canvas-muted pl-8 pr-4 py-2.5">
+    <article className="flex h-[67px] items-center gap-3 bg-canvas-muted pl-8 pr-4 py-2.5 transition-colors group-hover:bg-canvas-soft">
       <RouteLineBadge route={arrival.route} />
 
       <div className="min-w-0 flex-1">

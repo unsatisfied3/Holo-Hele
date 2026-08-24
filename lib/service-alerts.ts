@@ -94,12 +94,12 @@ export function getStopAlertLabel(
 
   if (isRouteSpecificSkippedStop) {
     if (routes.length === 1) {
-      return `Route ${routes[0]} is temporarily skipping this stop.`;
+      return `Line ${routes[0]} is temporarily skipping this stop.`;
     }
 
     if (routes.length > 1) {
       const lastRoute = routes.at(-1);
-      return `Routes ${routes.slice(0, -1).join(", ")} and ${lastRoute} are temporarily skipping this stop.`;
+      return `Lines ${routes.slice(0, -1).join(", ")} and ${lastRoute} are temporarily skipping this stop.`;
     }
   }
 
@@ -170,8 +170,8 @@ export function getAlertNotificationCopy(alert: TransitAlert): {
 
   if (isRouteSpecificSkippedStop && route && stop) {
     return {
-      title: `Route ${route} skipping Stop ${stop}`,
-      body: `Route ${route} is temporarily not serving this stop. Other routes may continue normally.`,
+      title: `Line ${route} skipping Stop ${stop}`,
+      body: `Line ${route} is temporarily not serving this stop. Other lines may continue normally.`,
     };
   }
 
@@ -184,14 +184,14 @@ export function getAlertNotificationCopy(alert: TransitAlert): {
 
   if (route && alert.type === "detour") {
     return {
-      title: `Route ${route} detour`,
+      title: `Line ${route} detour`,
       body: "A detour is affecting your saved route.",
     };
   }
 
   if (route) {
     return {
-      title: `Route ${route} service disruption`,
+      title: `Line ${route} service disruption`,
       body: "Service changes may affect your trip. View the alert for details.",
     };
   }

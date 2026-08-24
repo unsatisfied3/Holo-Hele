@@ -1,5 +1,6 @@
 export const FIGMA_ICONS = {
   busStopSign: "/icons/figma/bus-stop-sign.svg",
+  nearbyBusStopSign: "/icons/figma/nearby-bus-stop-sign.svg",
   busRoute: "/icons/figma/bus-route.svg",
   liveSignal: "/icons/figma/live-signal.svg",
   search: "/icons/figma/search.svg",
@@ -13,6 +14,11 @@ export const FIGMA_ICONS = {
   myLocation: "/icons/figma/my-location.svg",
   zoomIn: "/icons/figma/zoom-in.svg",
   zoomOut: "/icons/figma/zoom-out.svg",
+  walking: "/icons/figma/walking.svg",
+  swap: "/icons/figma/swap.svg",
+  chevronSmall: "/icons/figma/chevron-small.svg",
+  chevronRight: "/icons/figma/chevron-right.svg",
+  close: "/icons/figma/close.svg",
   arrowBack: "/icons/figma/arrow-back.svg",
   refresh: "/icons/figma/refresh.svg",
   schedule: "/icons/figma/schedule.svg",

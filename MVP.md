@@ -7,14 +7,16 @@
 - Live Arrivals
 - Route Search
 - Favorites
-- Simulated Trip Planning UX — a prototype flow from destination search through
-  journey options, directions, and live guidance using curated/mock journey
-  data
+- Direct Trip Planning — real walk–bus–walk options calculated from the active
+  TheBus GTFS feed, with exact-trip HEA arrival and vehicle enrichment when
+  available; curated mock journeys remain as an explicitly labeled fallback
 
 ## Out of Scope
 
-- Production Trip Planning and Routing — the prototype does not calculate real
-  journeys or use a production routing engine
+- Transfer and turn-by-turn routing — this release plans direct bus trips and
+  approximate walking connections; it does not yet use OpenTripPlanner or a
+  street-routing engine for transfers, accessible paths, rerouting, or detailed
+  pedestrian maneuvers
 - Payments
 - Apple Watch
 - Widgets

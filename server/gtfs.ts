@@ -3,10 +3,14 @@ import { strFromU8, unzipSync } from "fflate";
 import type {
   NearbyStopResult,
   DailyScheduleDeparture,
+  JourneyCoordinate,
+  JourneyOption,
   ScheduleDay,
   StopLocation,
+  StopSearchResult,
   TheBusArrival,
   TrackingRouteStop,
+  TripPlanResponse,
   VehicleLocation,
 } from "@/types/transit";
 import {
@@ -48,6 +52,7 @@ interface GtfsIndex {
   tripStopIds: Map<string, string[]>;
   routeIdsByShortName: Map<string, string[]>;
   routeShortNameById: Map<string, string>;
+  routeNamesByStopId: Map<string, Set<string>>;
   trips: GtfsTrip[];
   tripStopTimes: Map<string, GtfsStopTime[]>;
   shapesById: Map<string, Array<[number, number]>>;
@@ -214,6 +219,20 @@ async function loadGtfsIndex(): Promise<GtfsIndex> {
       },
     ];
   });
+  const routeNamesByStopId = new Map<string, Set<string>>();
+
+  for (const trip of trips) {
+    const routeName = routeShortNameById.get(trip.routeId);
+    const stopIds = tripStopIds.get(trip.tripId);
+    if (!routeName || !stopIds) continue;
+    const route = normalizeRouteShortName(routeName);
+
+    for (const stopId of stopIds) {
+      const routes = routeNamesByStopId.get(stopId) ?? new Set<string>();
+      routes.add(route);
+      routeNamesByStopId.set(stopId, routes);
+    }
+  }
 
   const shapeSequences = new Map<
     string,
@@ -274,6 +293,7 @@ async function loadGtfsIndex(): Promise<GtfsIndex> {
     tripStopIds,
     routeIdsByShortName,
     routeShortNameById,
+    routeNamesByStopId,
     trips,
     tripStopTimes,
     shapesById,
@@ -345,6 +365,53 @@ function formatGtfsTime(value: string): string {
   const suffix = hours >= 12 ? "PM" : "AM";
   const displayHour = hours % 12 || 12;
   return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function formatServiceSeconds(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600) % 24;
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function formatWalkingDistance(distanceMeters: number): string {
+  if (distanceMeters < 1000) {
+    return `${Math.max(10, Math.round(distanceMeters / 10) * 10)} m`;
+  }
+  return `${(distanceMeters / 1000).toFixed(1)} km`;
+}
+
+function nearestShapeIndex(
+  path: JourneyCoordinate[],
+  coordinate: JourneyCoordinate,
+  startIndex = 0,
+): number {
+  let nearestIndex = startIndex;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (let index = startIndex; index < path.length; index += 1) {
+    const [lat, lng] = path[index];
+    const distance = (lat - coordinate[0]) ** 2 + (lng - coordinate[1]) ** 2;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  }
+
+  return nearestIndex;
+}
+
+function sliceTripShape(
+  path: JourneyCoordinate[] | undefined,
+  board: JourneyCoordinate,
+  alight: JourneyCoordinate,
+  fallback: JourneyCoordinate[],
+): JourneyCoordinate[] {
+  if (!path?.length) return fallback;
+  const boardIndex = nearestShapeIndex(path, board);
+  const alightIndex = nearestShapeIndex(path, alight, boardIndex);
+  const segment = path.slice(boardIndex, alightIndex + 1);
+  return segment.length >= 2 ? segment : fallback;
 }
 
 function isServiceActive(
@@ -624,6 +691,318 @@ export async function getGtfsStops(): Promise<StopLocation[]> {
     lng,
     kind,
   }));
+}
+
+function stopSearchRank(stop: GtfsStop, query: string): number {
+  const id = normalizeSearch(stop.id);
+  const name = normalizeSearch(stop.name);
+  if (id === query) return 0;
+  if (name === query) return 1;
+  if (id.startsWith(query)) return 2;
+  if (name.split(/\s+/).some((word) => word.startsWith(query))) return 3;
+  if (name.startsWith(query)) return 4;
+  return 5;
+}
+
+export async function searchGtfsStops(
+  searchQuery: string,
+  limit = 8,
+): Promise<StopSearchResult[]> {
+  const index = await getGtfsIndex();
+  const query = normalizeSearch(searchQuery.trim());
+  if (!query) return [];
+
+  return index.stops
+    .filter((stop) => {
+      const id = normalizeSearch(stop.id);
+      const name = normalizeSearch(stop.name);
+      return id.includes(query) || name.includes(query);
+    })
+    .sort((first, second) => {
+      const rankDifference =
+        stopSearchRank(first, query) - stopSearchRank(second, query);
+      return (
+        rankDifference ||
+        first.name.localeCompare(second.name, undefined, { numeric: true })
+      );
+    })
+    .slice(0, Math.max(1, Math.min(limit, 20)))
+    .map(({ id, name, lat, lng, kind }) => ({
+      id,
+      name,
+      lat,
+      lng,
+      kind,
+      lines: [...(index.routeNamesByStopId.get(id) ?? [])].sort(
+        (first, second) =>
+          first.localeCompare(second, undefined, { numeric: true }),
+      ),
+    }));
+}
+
+export async function getGtfsTripPlan({
+  origin,
+  destination,
+  limit = 4,
+  planningTime = new Date(),
+  arriveBy = false,
+}: {
+  origin: { name: string; detail: string; lat: number; lng: number };
+  destination: { name: string; detail: string; lat: number; lng: number };
+  limit?: number;
+  planningTime?: Date;
+  arriveBy?: boolean;
+}): Promise<TripPlanResponse> {
+  const index = await getGtfsIndex();
+  const serviceTime = getHonoluluServiceTime(planningTime);
+  const approximateWalkFactor = 1.2;
+  const candidateRadiusMeters = 1800;
+  const candidateStopLimit = 16;
+
+  const nearestCandidates = (lat: number, lng: number) =>
+    index.stops
+      .map((stop) => ({
+        stop,
+        distanceMeters:
+          haversineMeters(lat, lng, stop.lat, stop.lng) * approximateWalkFactor,
+      }))
+      .filter(({ distanceMeters }) => distanceMeters <= candidateRadiusMeters)
+      .sort((first, second) => first.distanceMeters - second.distanceMeters)
+      .slice(0, candidateStopLimit);
+
+  const originCandidates = nearestCandidates(origin.lat, origin.lng);
+  const destinationCandidates = nearestCandidates(destination.lat, destination.lng);
+  const originByStop = new Map(originCandidates.map((item) => [item.stop.id, item]));
+  const destinationByStop = new Map(
+    destinationCandidates.map((item) => [item.stop.id, item]),
+  );
+  const candidates: Array<{ journey: JourneyOption; arrivalSeconds: number }> = [];
+
+  for (const trip of index.trips) {
+    if (
+      !isServiceActive(
+        index,
+        trip.serviceId,
+        serviceTime.dateKey,
+        serviceTime.weekday,
+      )
+    ) {
+      continue;
+    }
+
+    const routeName = index.routeShortNameById.get(trip.routeId);
+    const stopTimes = index.tripStopTimes.get(trip.tripId);
+    if (!routeName || !stopTimes?.length) continue;
+
+    const boardOptions = stopTimes.flatMap((stopTime, stopIndex) => {
+      const nearby = originByStop.get(stopTime.stopId);
+      if (!nearby) return [];
+      const departureSeconds = parseGtfsTimeSeconds(
+        stopTime.departureTime || stopTime.arrivalTime,
+      );
+      if (departureSeconds == null) return [];
+      const walkMinutes = walkMinutesFromMeters(nearby.distanceMeters);
+      if (arriveBy) {
+        if (departureSeconds < serviceTime.seconds - 4 * 60 * 60) return [];
+        if (departureSeconds > serviceTime.seconds) return [];
+      } else {
+        if (departureSeconds < serviceTime.seconds + walkMinutes * 60) return [];
+        if (departureSeconds > serviceTime.seconds + 4 * 60 * 60) return [];
+      }
+      return [{ stopTime, stopIndex, nearby, departureSeconds, walkMinutes }];
+    });
+
+    for (const board of boardOptions) {
+      const alightOptions = stopTimes.slice(board.stopIndex + 1).flatMap(
+        (stopTime, offset) => {
+          const nearby = destinationByStop.get(stopTime.stopId);
+          if (!nearby) return [];
+          const arrivalSeconds = parseGtfsTimeSeconds(
+            stopTime.arrivalTime || stopTime.departureTime,
+          );
+          if (arrivalSeconds == null || arrivalSeconds <= board.departureSeconds) {
+            return [];
+          }
+          return [{
+            stopTime,
+            stopIndex: board.stopIndex + offset + 1,
+            nearby,
+            arrivalSeconds,
+          }];
+        },
+      );
+
+      for (const alight of alightOptions) {
+        const boardStop = index.stopsById.get(board.stopTime.stopId);
+        const alightStop = index.stopsById.get(alight.stopTime.stopId);
+        if (!boardStop || !alightStop) continue;
+
+        const walkEndMinutes = walkMinutesFromMeters(alight.nearby.distanceMeters);
+        const finalArrivalSeconds = alight.arrivalSeconds + walkEndMinutes * 60;
+        if (
+          arriveBy &&
+          (finalArrivalSeconds > serviceTime.seconds ||
+            finalArrivalSeconds < serviceTime.seconds - 4 * 60 * 60)
+        ) {
+          continue;
+        }
+        const journeyOriginSeconds = arriveBy
+          ? board.departureSeconds - board.walkMinutes * 60
+          : serviceTime.seconds;
+        const route = normalizeRouteShortName(routeName);
+        const fallbackTransitPath = stopTimes
+          .slice(board.stopIndex, alight.stopIndex + 1)
+          .flatMap((stopTime): JourneyCoordinate[] => {
+            const stop = index.stopsById.get(stopTime.stopId);
+            return stop ? [[stop.lat, stop.lng]] : [];
+          });
+        const fullTripShape = index.shapesById.get(trip.shapeId);
+        const transitPath = sliceTripShape(
+          fullTripShape,
+          [boardStop.lat, boardStop.lng],
+          [alightStop.lat, alightStop.lng],
+          fallbackTransitPath,
+        );
+        const boardShapeIndex = fullTripShape
+          ? nearestShapeIndex(fullTripShape, [boardStop.lat, boardStop.lng])
+          : -1;
+        const approachPath =
+          fullTripShape && boardShapeIndex > 0
+            ? fullTripShape.slice(0, boardShapeIndex + 1)
+            : undefined;
+        const nextStop = stopTimes[board.stopIndex + 1];
+        const nextStopName = nextStop
+          ? index.stopsById.get(nextStop.stopId)?.name
+          : undefined;
+        const rideStopSequence = stopTimes
+          .slice(board.stopIndex, alight.stopIndex + 1)
+          .flatMap((stopTime) => {
+            const stop = index.stopsById.get(stopTime.stopId);
+            const stopSeconds = parseGtfsTimeSeconds(
+              stopTime.arrivalTime || stopTime.departureTime,
+            );
+            return stop && stopSeconds != null
+              ? [{
+                  id: stop.id,
+                  name: stop.name,
+                  detail: "",
+                  coordinate: [stop.lat, stop.lng] as JourneyCoordinate,
+                  time: formatServiceSeconds(stopSeconds),
+                }]
+              : [];
+          });
+
+        candidates.push({
+          arrivalSeconds: finalArrivalSeconds,
+          journey: {
+            id: `gtfs-${trip.tripId}-${boardStop.id}-${alightStop.id}`,
+            tripId: trip.tripId,
+            dataSource: "scheduled",
+            serviceDate: serviceTime.displayDate,
+            travelMinutes: Math.max(
+              1,
+              Math.ceil((finalArrivalSeconds - journeyOriginSeconds) / 60),
+            ),
+            walkStartMinutes: board.walkMinutes,
+            walkStartDistance: formatWalkingDistance(board.nearby.distanceMeters),
+            route,
+            routeHeadsign: trip.headsign || `Route ${route}`,
+            scheduledTime: formatServiceSeconds(board.departureSeconds),
+            rideMinutes: Math.max(
+              1,
+              Math.ceil((alight.arrivalSeconds - board.departureSeconds) / 60),
+            ),
+            rideStops: alight.stopIndex - board.stopIndex,
+            transfers: 0,
+            walkEndMinutes,
+            walkEndDistance: formatWalkingDistance(alight.nearby.distanceMeters),
+            origin: {
+              name: origin.name,
+              detail: origin.detail,
+              coordinate: [origin.lat, origin.lng],
+              time: formatServiceSeconds(journeyOriginSeconds),
+            },
+            boardStop: {
+              id: boardStop.id,
+              name: boardStop.name,
+              detail: `Stop ${boardStop.id}`,
+              coordinate: [boardStop.lat, boardStop.lng],
+              time: formatServiceSeconds(board.departureSeconds),
+            },
+            alightStop: {
+              id: alightStop.id,
+              name: alightStop.name,
+              detail: `Stop ${alightStop.id}`,
+              coordinate: [alightStop.lat, alightStop.lng],
+              time: formatServiceSeconds(alight.arrivalSeconds),
+            },
+            rideStopSequence,
+            destination: {
+              name: destination.name,
+              detail: destination.detail,
+              coordinate: [destination.lat, destination.lng],
+              time: formatServiceSeconds(finalArrivalSeconds),
+            },
+            walkingInstructions: [
+              `Head toward ${boardStop.name}.`,
+              `Continue for approximately ${formatWalkingDistance(board.nearby.distanceMeters)} until you reach the stop.`,
+              `Board Route ${route} toward ${trip.headsign || `Route ${route}`}.`,
+            ],
+            nextTransitStop: nextStopName ?? alightStop.name,
+            path: {
+              walkStart: [
+                [origin.lat, origin.lng],
+                [boardStop.lat, boardStop.lng],
+              ],
+              approach: approachPath,
+              transit: transitPath,
+              walkEnd: [
+                [alightStop.lat, alightStop.lng],
+                [destination.lat, destination.lng],
+              ],
+            },
+            simulation: {
+              walkingPosition: [origin.lat, origin.lng],
+              transitPosition: [boardStop.lat, boardStop.lng],
+              transitPathIndex: 0,
+            },
+          },
+        });
+      }
+    }
+  }
+
+  candidates.sort(
+    (first, second) =>
+      (arriveBy
+        ? second.arrivalSeconds - first.arrivalSeconds
+        : first.arrivalSeconds - second.arrivalSeconds) ||
+      first.journey.walkStartMinutes - second.journey.walkStartMinutes,
+  );
+  const selected: JourneyOption[] = [];
+  const selectedRoutes = new Set<string>();
+  for (const candidate of candidates) {
+    if (selectedRoutes.has(candidate.journey.route)) continue;
+    selected.push(candidate.journey);
+    selectedRoutes.add(candidate.journey.route);
+    if (selected.length >= limit) break;
+  }
+
+  return {
+    journeys: selected,
+    origin: {
+      name: origin.name,
+      detail: origin.detail,
+      coordinate: [origin.lat, origin.lng],
+    },
+    destination: {
+      name: destination.name,
+      detail: destination.detail,
+      coordinate: [destination.lat, destination.lng],
+    },
+    dataSource: "scheduled",
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export async function getGtfsRouteSchedule({

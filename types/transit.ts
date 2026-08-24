@@ -99,6 +99,16 @@ export interface MapStopsResponse {
   dataSource: "scheduled";
 }
 
+export interface StopSearchResult extends StopLocation {
+  lines: string[];
+}
+
+export interface StopSearchResponse {
+  stops: StopSearchResult[];
+  fetchedAt: string;
+  dataSource: "scheduled";
+}
+
 export interface DailyScheduleDeparture {
   id: string;
   route: string;
@@ -135,6 +145,69 @@ export interface RouteScheduleResponse {
   stops: ScheduledRouteStop[];
   dataSource: "scheduled";
   fetchedAt: string;
+}
+
+export type JourneyCoordinate = [number, number];
+
+export interface JourneyLocation {
+  name: string;
+  detail: string;
+  coordinate: JourneyCoordinate;
+}
+
+export interface JourneyStop extends JourneyLocation {
+  id: string;
+  time: string;
+}
+
+export type JourneyDataSource = "mock" | "scheduled" | "live";
+export type TripTimeMode = "now" | "leave" | "arrive";
+
+export interface JourneyOption {
+  id: string;
+  tripId?: string;
+  dataSource: JourneyDataSource;
+  serviceDate?: string;
+  travelMinutes: number;
+  walkStartMinutes: number;
+  walkStartDistance: string;
+  route: string;
+  routeHeadsign: string;
+  etaMinutes?: number;
+  scheduleDeviationMinutes?: number;
+  scheduledTime?: string;
+  rideMinutes: number;
+  rideStops: number;
+  transfers?: number;
+  walkEndMinutes: number;
+  walkEndDistance: string;
+  origin: JourneyLocation & { time: string };
+  boardStop: JourneyStop;
+  alightStop: JourneyStop;
+  rideStopSequence?: JourneyStop[];
+  destination: JourneyLocation & { time: string };
+  walkingInstructions: string[];
+  nextTransitStop: string;
+  path: {
+    walkStart: JourneyCoordinate[];
+    approach?: JourneyCoordinate[];
+    transit: JourneyCoordinate[];
+    walkEnd: JourneyCoordinate[];
+  };
+  simulation: {
+    walkingPosition: JourneyCoordinate;
+    transitPosition: JourneyCoordinate;
+    transitPathIndex: number;
+  };
+}
+
+export interface TripPlanResponse {
+  journeys: JourneyOption[];
+  origin: JourneyLocation;
+  destination: JourneyLocation;
+  dataSource: "scheduled" | "live";
+  fetchedAt: string;
+  error?: string;
 }
 
 export type TransitAlertType =

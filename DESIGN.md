@@ -91,9 +91,11 @@ Defined in `:root` in `src/styles.css` and its imported token stylesheet.
 | `--hairline` / `--border` | `#e4e4e7` | All dividers and control borders |
 | `--surface-pressed` | charcoal-500 | Pressed/disabled fills |
 
-Transit blue identifies actions, routes, focus, and current navigation. Hover
-surfaces remain neutral gray (`--canvas-soft`); do not tint list rows or chips
-blue.
+Transit blue identifies branded actions, routes, selected states, and current
+navigation. Neutral controls and list rows may use `--charcoal-700` for their
+focus outline; its contrast against white remains visible without implying a
+selected blue state. Hover surfaces remain neutral gray (`--canvas-soft`); do
+not tint list rows or chips blue.
 
 ---
 
@@ -165,7 +167,7 @@ Static assets live in **`public/icons/figma/`** via `FigmaIcon` and `lib/figma-i
 |------------|--------------|-----|
 | `search` | 24px | Search bar |
 | `home`, `work`, `other` | 18px | Destination chips |
-| `busStopSign` | 17×21px | Stop list row |
+| `busStopSign` | 15×14px source, scaled proportionally | Stop list rows and stop markers in text-based directions |
 | `busRoute` | 14×17px | Route badge inside preview |
 | `chevronDown` | 16px | Sheet expand toggle |
 | `zoomIn`, `zoomOut`, `myLocation` | 24px | Map controls |
@@ -434,8 +436,8 @@ bus detail alert must match both its exact route and saved stop; a whole-stop
 closure with no route list affects every bus at that stop. Stop alerts require
 an explicit official stop number and say whether the entire stop is closed or
 only the named routes are temporarily skipping that stop. Route-specific copy
-uses “Route 1L is temporarily skipping this stop.” or the plural equivalent;
-the curated weather example uses “Weather is affecting Route 65 service near
+uses “Line 1L is temporarily skipping this stop.” or the plural equivalent;
+the curated weather example uses “Weather is affecting Line 65 service near
 this stop.”
 Demonstration disruptions remain isolated in `lib/mock/service-alerts.ts` and
 never enter the live API response. During portfolio simulation they use the
@@ -501,11 +503,16 @@ Mock mode uses separate, explicit stop-sequence fixtures.
 
 ## Search and trip planning
 
-The client-only preview flow follows `Search.png`, `Results.png`,
-`Suggested Routes.png`, `Directions.png`, and `Live Direction 1.png`.
+The trip-planning flow follows the seven approved Figma frames for saved and
+focused search, categorized results, Plan Trip, Direction, and both Live
+Direction states while keeping official, live, and fallback data states
+visually explicit.
 
 - `/search` filters categorized buses, stops, and places; an empty query shows
-  saved stops and recent places.
+  saved stops and recent buses. Stop suggestions are debounced and come from
+  the active official GTFS stop index, with a short result cap and scheduled
+  line metadata. Bus and place suggestions remain curated until general route
+  pages and a geocoder are available.
 - `/routes/[routeId]` opens a map-led route overview with route identity, the
   official GTFS shape, every scheduled stop, and a vertically connected stop
   sequence. The Hawaiʻi Kai example uses Route 1L and labels GTFS times as
@@ -513,12 +520,86 @@ The client-only preview flow follows `Search.png`, `Results.png`,
 - Route-map endpoints remain visible at every zoom. Intermediate stop markers
   are compact 8px hollow circles and appear at zoom 11+, keeping the full-route
   view readable while preserving every GTFS stop when riders inspect an area.
-- `/plan?destination=...` shows recommended and alternative sample journeys.
-- `/directions/[journeyId]` shows the map and full itinerary.
-- `/live-directions/[journeyId]` shows the active instruction card.
+- Selecting a Place result starts the trip-planning preview; Bus and Stop
+  results continue into their existing detail flows.
+- `/plan?destination=...` requests current direct trip options from the active
+  TheBus GTFS feed when origin and destination coordinates are available. Cards
+  and empty/unavailable states sit on a white `--canvas` page background.
+  Cards
+  use a compact transit-results hierarchy: total duration at left, whole-trip
+  departure and arrival times, walk–route–walk sequence, and boarding status and
+  stop. Options share one continuous list without separate recommended and
+  alternative headings or tags. The card does not repeat a separate boarding-time
+  icon or value above the route sequence; a live option relies on its colored
+  countdown treatment instead of repeating a **Live** label. Its compact boarding
+  summary uses **In {n} min · from {stop}** and may wrap to two lines, prefixed by **Early** or
+  **Delayed** only when the live estimate differs from schedule by at least two
+  minutes. **Scheduled** and **Simulated** remain explicit. Route headsign
+  details appear after opening an option to keep the results list easy to scan.
+  Warning and critical service
+  alerts appear only on options whose route is affected. A failed official
+  request shows a retry state before the clearly labeled simulated preview;
+  loading and no-direct-trip states remain text-accessible and never leave a
+  blank screen. The options list uses 16px screen-edge spacing; cards use 12px
+  horizontal padding and a compact duration column so boarding details retain
+  as much readable width as possible. Trip cards use `--radius-md`, and all
+  boarding and alert copy wraps without line clamping. The departure control
+  opens a mobile bottom sheet for **Now**, **Leave**, or **Arrive**. Leave and
+  Arrive accept a time, update the compact button label, and use
+  scheduled GTFS service rather than presenting future results as live. The
+  closed control defaults to **Leave by {current time}** rather than a separate
+  **Depart now** label. Choosing **Now** inside the time sheet resets the
+  selection to the rider's current time and restores live planning. The sheet
+  always opens on **Leave** with the time editor visible; it does not expose a
+  separate date field. Time is selected through an inline, accessible
+  hour–minute–AM/PM wheel that echoes familiar mobile transit pickers while
+  retaining Holo Hele tokens and focus states. A selected time that has already
+  passed is treated as the next day's occurrence. Selecting **Now** keeps the
+  wheel visible and snaps all three columns back to the current time. **Now** is
+  disabled while the picker already matches the current minute. A secondary
+  **Time / Date** switch keeps upcoming-day selection separate from the wheel;
+  past combinations are blocked with a plain-language recovery message.
+  adjacent filter reorders options by **Best route**, **Least walking**, or
+  **Fewest transfers**. Because this release supports direct trips only, the
+  fewest-transfer choice may preserve the existing order. Both controls retain
+  the compact Figma button treatment with chevrons; filters appear in a bordered,
+  shadow-free menu and the time selection uses a separate white bottom sheet.
+  The filter button remains labeled **Filter by** and exposes its current choice
+  accessibly.
+- Opening Plan Trip never triggers a new browser permission prompt. It silently
+  uses location only when geolocation permission is already granted; otherwise
+  it uses the labeled downtown preview origin. New permission requests remain
+  attached to explicit onboarding and Settings actions.
+- `/directions/[journeyId]` is the itinerary-led **Trip Details** screen. A
+  compact, control-free route overview map provides geographic context without
+  competing with the content. The summary makes departure, arrival, duration,
+  modes, and live-versus-scheduled status immediately scannable. Below it, the
+  complete walk–ride–walk timeline uses content-column dividers that do not cut
+  across its vertical route rail. It follows the trip summary directly without
+  a redundant **Trip itinerary** heading. Walking summaries expand into
+  separated direction steps, an approximate-routing caution, and a destination
+  cue. Mode icons sit with their labels so the rail remains continuous and its
+  walking-versus-transit segments align cleanly. The bus number, route destination/name, ride duration,
+  and stop count share one expandable ride section; opening it reveals the
+  scheduled stop sequence and times without exposing stop IDs in the primary
+  itinerary.
+  Preview-origin implementation labels such as “Downtown Honolulu preview” and
+  “Approximate device location” are not exposed here; an older fallback journey
+  uses the neutral **Starting point** label, while permission-backed journeys
+  use **Your location**.
+  Matching service disruptions appear above the timeline. **Start** and
+  **Favorite** remain in a sticky bottom action row; **Start** continues into
+  the separate Live Direction experience.
+- `/live-directions/[journeyId]` provides deterministic, manually switchable
+  walking and onboard guidance states. The accessible middle progress control,
+  labeled **I’m on the bus**, is the explicit boarding confirmation; the app
+  does not infer boarding from GPS alone.
 
-Journey options and itinerary timing are clearly labeled simulated mock data
-until a production directions source is connected.
+Official options use active service calendars, scheduled stop sequences and
+route shapes. An HEA estimate is attached only when its trip ID exactly matches
+the planned GTFS trip; unmatched options remain scheduled. Walking distances
+use approximate stop proximity and straight map connectors, not street-level or
+turn-by-turn routing. This first release supports direct bus trips only.
 
 ---
 
