@@ -176,6 +176,7 @@ Static assets live in **`public/icons/figma/`** via `FigmaIcon` and `lib/figma-i
 | `refresh` | 14px | Stop detail refresh line |
 | `schedule` | 20px | Stop detail Schedule action button |
 | `place`, `favorite` | 20px | Stop detail icon-only actions |
+| `placeFilled` | 16px | Filled Places result icon in Search |
 
 **Bus stop badge & route badge:** `4px` radius, `1px` border on top/left/right, **`3px` bottom border** (`border-b-[3px]`), black border color — matches Figma route/stop sign frames.
 

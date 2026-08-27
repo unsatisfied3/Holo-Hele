@@ -22,7 +22,11 @@ function ResultIcon({
   neutral?: boolean;
 }) {
   const icon =
-    type === "bus" ? "busRoute" : type === "stop" ? "busStopSign" : "place";
+    type === "bus"
+      ? "busRoute"
+      : type === "stop"
+        ? "busStopSign"
+        : "placeFilled";
   return (
     <span
       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
@@ -159,7 +163,7 @@ function SearchPage() {
   return (
     <main className="app-page-enter app-shell min-h-dvh overflow-y-auto bg-canvas">
       <header className="border-b-[7px] border-canvas-soft bg-canvas px-4 pb-4 pt-[max(env(safe-area-inset-top),4.25rem)]">
-        <label className="flex h-12 items-center gap-2 rounded-[var(--radius-pill)] bg-canvas-softer px-4 transition-colors duration-150 focus-within:bg-canvas-muted">
+        <div className="flex h-12 items-center gap-2 rounded-[var(--radius-pill)] bg-canvas-softer px-4 transition-colors duration-150 focus-within:bg-canvas-muted">
           <Link
             to="/home"
             aria-label="Back to map"
@@ -175,9 +179,19 @@ function SearchPage() {
             aria-label="Search buses, stops, and places"
             aria-autocomplete="list"
             autoFocus
-            className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-mute focus:outline-none"
+            className="search-input min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-mute focus:outline-none"
           />
-        </label>
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-65 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <FigmaIcon name="close" size={16} className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
 
         <div className="mt-3 flex items-center gap-5">
           {[

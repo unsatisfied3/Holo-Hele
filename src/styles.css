@@ -388,3 +388,7 @@ h3 {
   border-radius: var(--radius-pill);
   background: var(--charcoal-500);
 }
+
+.search-input::-webkit-search-cancel-button {
+  appearance: none;
+}

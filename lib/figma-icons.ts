@@ -23,6 +23,7 @@ export const FIGMA_ICONS = {
   refresh: "/icons/figma/refresh.svg",
   schedule: "/icons/figma/schedule.svg",
   place: "/icons/figma/place.svg",
+  placeFilled: "/icons/figma/place-filled.svg",
   favorite: "/icons/figma/favorite.svg",
 } as const;
 
