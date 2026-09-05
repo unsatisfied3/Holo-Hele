@@ -10,7 +10,11 @@ import {
 } from "@/lib/figma-icons";
 import type { JourneyCoordinate, JourneyOption } from "@/types/transit";
 
-export type DirectionsMapPhase = "preview" | "walking" | "transit";
+export type DirectionsMapPhase =
+  | "preview"
+  | "walking"
+  | "transit"
+  | "final-walk";
 
 const locationIcon = L.divIcon({
   className: "journey-user-marker",
@@ -37,17 +41,23 @@ function FitJourney({
   journey,
   phase,
   compact,
+  riderLocation,
+  vehicleLocation,
 }: {
   journey: JourneyOption;
   phase: DirectionsMapPhase;
   compact: boolean;
+  riderLocation?: JourneyCoordinate | null;
+  vehicleLocation?: JourneyCoordinate | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    const positions = phase === "walking"
+    const positions: JourneyCoordinate[] = phase === "walking"
       ? [...journey.path.walkStart, journey.boardStop.coordinate]
-      : [
+      : phase === "final-walk"
+        ? [...journey.path.walkEnd, journey.destination.coordinate]
+        : [
           ...journey.path.walkStart,
           ...journey.path.transit,
           ...journey.path.walkEnd,
@@ -56,14 +66,18 @@ function FitJourney({
             : []),
         ];
 
+    if (riderLocation) positions.push(riderLocation);
+    if (vehicleLocation) positions.push(vehicleLocation);
+
     map.fitBounds(positions, {
       paddingTopLeft: compact ? [24, 24] : [44, 72],
       paddingBottomRight: compact
         ? [24, 24]
         : [44, phase === "preview" ? 150 : 190],
-      maxZoom: compact ? 14 : phase === "walking" ? 17 : 15,
+      maxZoom:
+        compact ? 14 : phase === "walking" || phase === "final-walk" ? 17 : 15,
     });
-  }, [compact, journey, map, phase]);
+  }, [compact, journey, map, phase, riderLocation, vehicleLocation]);
 
   return null;
 }
@@ -96,39 +110,121 @@ function directionIcon(rotationDegrees: number) {
   });
 }
 
+function nearestPathIndex(
+  path: JourneyCoordinate[],
+  coordinate: JourneyCoordinate,
+) {
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  path.forEach(([lat, lng], index) => {
+    const distance =
+      (lat - coordinate[0]) ** 2 + (lng - coordinate[1]) ** 2;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+
+  return nearestIndex;
+}
+
+function remainingPathFromPosition(
+  path: JourneyCoordinate[],
+  position: JourneyCoordinate,
+  destination: JourneyCoordinate,
+): JourneyCoordinate[] {
+  if (path.length === 0) return [position, destination];
+
+  const nearestIndex = nearestPathIndex(path, position);
+  const remainingPath = path.slice(nearestIndex + 1);
+  const lastCoordinate = remainingPath.at(-1);
+  const reachesDestination =
+    lastCoordinate?.[0] === destination[0] &&
+    lastCoordinate?.[1] === destination[1];
+
+  return [
+    position,
+    ...remainingPath,
+    ...(reachesDestination ? [] : [destination]),
+  ];
+}
+
 export function DirectionsMap({
   journey,
   phase = "preview",
   showControls = true,
   compact = false,
+  riderLocation,
+  vehicleLocation,
+  vehicleLabel,
+  showDirectionArrow = true,
 }: {
   journey: JourneyOption;
   phase?: DirectionsMapPhase;
   showControls?: boolean;
   compact?: boolean;
+  /** Undefined retains the itinerary preview marker; null intentionally hides it. */
+  riderLocation?: JourneyCoordinate | null;
+  vehicleLocation?: JourneyCoordinate | null;
+  vehicleLabel?: string;
+  showDirectionArrow?: boolean;
 }) {
-  const transitSplit = journey.simulation.transitPathIndex;
+  const transitSplit = vehicleLocation
+    ? nearestPathIndex(journey.path.transit, vehicleLocation)
+    : journey.simulation.transitPathIndex;
   const completedTransit = journey.path.transit.slice(0, transitSplit + 1);
   const remainingTransit = journey.path.transit.slice(transitSplit);
-  const activePosition: JourneyCoordinate = phase === "transit"
+  const fallbackActivePosition: JourneyCoordinate = phase === "transit"
     ? transitSplit === 0 && journey.path.approach?.length
       ? journey.boardStop.coordinate
       : journey.simulation.transitPosition
     : phase === "walking"
       ? journey.simulation.walkingPosition
+      : phase === "final-walk"
+        ? journey.alightStop.coordinate
       : journey.origin.coordinate;
+  const activePosition = riderLocation === null
+    ? undefined
+    : riderLocation ?? fallbackActivePosition;
+  const activeWalkingPath =
+    phase === "walking" && activePosition
+      ? remainingPathFromPosition(
+          journey.path.walkStart,
+          activePosition,
+          journey.boardStop.coordinate,
+        )
+      : journey.path.walkStart;
+  const activeFinalWalkingPath =
+    phase === "final-walk" && activePosition
+      ? remainingPathFromPosition(
+          journey.path.walkEnd,
+          activePosition,
+          journey.destination.coordinate,
+        )
+      : journey.path.walkEnd;
+  const guidancePosition = phase === "transit"
+    ? vehicleLocation ?? activePosition ?? fallbackActivePosition
+    : activePosition ?? fallbackActivePosition;
   const transitDirectionIndex = Math.min(
     phase === "transit" ? transitSplit : 0,
     Math.max(journey.path.transit.length - 2, 0),
   );
   const directionStart = phase === "transit"
-    ? activePosition
+    ? guidancePosition
     : journey.path.transit[transitDirectionIndex] ?? journey.boardStop.coordinate;
   const directionEnd =
     journey.path.transit[transitDirectionIndex + 1] ?? journey.alightStop.coordinate;
   const directionPosition = phase === "transit"
-    ? activePosition
+    ? guidancePosition
     : journey.boardStop.coordinate;
+  const approachPath = journey.path.approach ?? [];
+  const approachIndex = vehicleLocation && approachPath.length
+    ? nearestPathIndex(approachPath, vehicleLocation)
+    : 0;
+  const remainingApproach = vehicleLocation && approachPath.length
+    ? [vehicleLocation, ...approachPath.slice(approachIndex + 1)]
+    : approachPath;
 
   return (
     <MapContainer
@@ -141,15 +237,21 @@ export function DirectionsMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
-      <FitJourney journey={journey} phase={phase} compact={compact} />
+      <FitJourney
+        journey={journey}
+        phase={phase}
+        compact={compact}
+        riderLocation={riderLocation}
+        vehicleLocation={vehicleLocation}
+      />
 
       <Polyline
-        positions={journey.path.walkStart}
+        positions={activeWalkingPath}
         pathOptions={{ color: "#5b6470", weight: 4, dashArray: "6 7" }}
       />
-      {phase !== "transit" && journey.dataSource === "live" && journey.path.approach?.length ? (
+      {phase !== "transit" && vehicleLocation && remainingApproach.length > 1 ? (
         <Polyline
-          positions={journey.path.approach}
+          positions={remainingApproach}
           pathOptions={{ color: "#78b7ef", weight: 5 }}
         />
       ) : null}
@@ -164,28 +266,38 @@ export function DirectionsMap({
         <Polyline positions={journey.path.transit} pathOptions={{ color: "#0055a5", weight: 5 }} />
       )}
       <Polyline
-        positions={journey.path.walkEnd}
+        positions={activeFinalWalkingPath}
         pathOptions={{ color: "#5b6470", weight: 4, dashArray: "6 7" }}
       />
 
       <Marker position={journey.boardStop.coordinate} icon={stopIcon} title={journey.boardStop.name} />
       <Marker position={journey.alightStop.coordinate} icon={stopIcon} title={journey.alightStop.name} />
       <Marker position={journey.destination.coordinate} icon={destinationIcon} title={journey.destination.name} />
-      <Marker position={activePosition} icon={locationIcon} title="Current trip position" />
-      {phase === "preview" && journey.dataSource !== "scheduled" ? (
+      {activePosition ? (
+        <Marker position={activePosition} icon={locationIcon} title="Your location" />
+      ) : null}
+      {vehicleLocation ? (
+        <Marker
+          position={vehicleLocation}
+          icon={busIcon(vehicleLabel ?? "Bus")}
+          title={`Live Route ${journey.route} bus location`}
+        />
+      ) : phase === "preview" && journey.dataSource !== "scheduled" ? (
         <Marker
           position={journey.simulation.transitPosition}
           icon={busIcon(journey.etaMinutes != null ? `${journey.etaMinutes} min` : "Preview")}
           title={`Route ${journey.route} vehicle position`}
         />
       ) : null}
-      <Marker
-        position={directionPosition}
-        icon={directionIcon(directionRotation(directionStart, directionEnd))}
-        interactive={false}
-        keyboard={false}
-        title={`Route ${journey.route} direction`}
-      />
+      {showDirectionArrow ? (
+        <Marker
+          position={directionPosition}
+          icon={directionIcon(directionRotation(directionStart, directionEnd))}
+          interactive={false}
+          keyboard={false}
+          title={`Route ${journey.route} direction`}
+        />
+      ) : null}
 
       {showControls ? (
         <MapControls

@@ -20,6 +20,7 @@ import {
   searchGtfsStops,
 } from "@/server/gtfs";
 import { getServiceAlerts } from "@/server/service-alerts";
+import { getWalkingDirections } from "@/server/walking-directions";
 import type {
   JourneyCoordinate,
   JourneyOption,
@@ -567,6 +568,61 @@ async function tripPlan(url: URL, origin: string | null): Promise<Response> {
   );
 }
 
+function walkingCoordinate(
+  searchParams: URLSearchParams,
+  name: string,
+  limit: number,
+) {
+  const value = Number(searchParams.get(name));
+  return Number.isFinite(value) && Math.abs(value) <= limit ? value : undefined;
+}
+
+async function walkingDirections(
+  url: URL,
+  origin: string | null,
+): Promise<Response> {
+  const originLat = walkingCoordinate(url.searchParams, "originLat", 90);
+  const originLng = walkingCoordinate(url.searchParams, "originLng", 180);
+  const boardLat = walkingCoordinate(url.searchParams, "boardLat", 90);
+  const boardLng = walkingCoordinate(url.searchParams, "boardLng", 180);
+  const alightLat = walkingCoordinate(url.searchParams, "alightLat", 90);
+  const alightLng = walkingCoordinate(url.searchParams, "alightLng", 180);
+  const destinationLat = walkingCoordinate(
+    url.searchParams,
+    "destinationLat",
+    90,
+  );
+  const destinationLng = walkingCoordinate(
+    url.searchParams,
+    "destinationLng",
+    180,
+  );
+
+  if (
+    originLat == null ||
+    originLng == null ||
+    boardLat == null ||
+    boardLng == null ||
+    alightLat == null ||
+    alightLng == null ||
+    destinationLat == null ||
+    destinationLng == null
+  ) {
+    return json({ error: "Walking route coordinates are invalid." }, 400, origin);
+  }
+
+  return json(
+    await getWalkingDirections({
+      origin: [originLat, originLng],
+      board: [boardLat, boardLng],
+      alight: [alightLat, alightLng],
+      destination: [destinationLat, destinationLng],
+    }),
+    200,
+    origin,
+  );
+}
+
 async function mapStops(origin: string | null): Promise<Response> {
   try {
     return json(
@@ -658,14 +714,18 @@ async function dailyStopSchedule(
   const stop = url.searchParams.get("stop")?.trim();
   const route = url.searchParams.get("route")?.trim();
   const dayParam = url.searchParams.get("day")?.trim();
+  const dateParam = url.searchParams.get("date")?.trim();
   if (!stop) return json({ error: "Missing stop parameter." }, 400, origin);
   if (dayParam && dayParam !== "today" && dayParam !== "tomorrow") {
     return json({ error: "Invalid day parameter." }, 400, origin);
   }
-  const day = dayParam === "tomorrow" ? "tomorrow" : "today";
+  if (dateParam && !isValidIsoDate(dateParam)) {
+    return json({ error: "Invalid date parameter." }, 400, origin);
+  }
+  const serviceDate = dateParam ?? (dayParam === "tomorrow" ? "tomorrow" : "today");
 
   try {
-    const schedule = await getGtfsDailyStopSchedule(stop, route, day);
+    const schedule = await getGtfsDailyStopSchedule(stop, route, serviceDate);
     if (!schedule) return json({ error: "Stop not found." }, 404, origin);
     return json(
       {
@@ -683,6 +743,18 @@ async function dailyStopSchedule(
       origin,
     );
   }
+}
+
+function isValidIsoDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
 }
 
 async function stopLocation(url: URL, origin: string | null): Promise<Response> {
@@ -730,6 +802,9 @@ const server = Bun.serve({
     if (url.pathname === "/api/arrivals") return arrivals(url, origin);
     if (url.pathname === "/api/tracking") return tracking(url, origin);
     if (url.pathname === "/api/trip-plan") return tripPlan(url, origin);
+    if (url.pathname === "/api/walking-directions") {
+      return walkingDirections(url, origin);
+    }
     if (url.pathname === "/api/route-schedule") {
       return routeSchedule(url, origin);
     }

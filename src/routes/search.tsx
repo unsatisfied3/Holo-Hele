@@ -4,11 +4,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { fetchStopSearch } from "@/lib/api/transit";
-import { useFavoriteBusIds, useFavoriteStopIds } from "@/lib/favorites";
+import {
+  toggleFavoriteBus,
+  toggleFavoriteStop,
+  useFavoriteBusIds,
+  useFavoriteStopIds,
+} from "@/lib/favorites";
 import { FAVORITE_BUS_PRESETS } from "@/lib/mock/favorites";
 import { SEARCH_BUSES, SEARCH_PLACES } from "@/lib/mock/journeys";
 import { HONOLULU_STOPS, getStopById } from "@/lib/thebus/stops";
 import type { StopSearchResult } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/search")({
   component: SearchPage,
@@ -46,6 +52,7 @@ function ResultIcon({
 
 function SearchPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const favoriteStopIds = useFavoriteStopIds();
   const favoriteBusIds = useFavoriteBusIds();
   const [query, setQuery] = useState("");
@@ -166,7 +173,7 @@ function SearchPage() {
         <div className="flex h-12 items-center gap-2 rounded-[var(--radius-pill)] bg-canvas-softer px-4 transition-colors duration-150 focus-within:bg-canvas-muted">
           <Link
             to="/home"
-            aria-label="Back to map"
+            aria-label={t("Back to map")}
             className="flex h-9 w-7 shrink-0 items-center justify-start rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <FigmaIcon name="arrowBack" size={22} className="h-[22px] w-[22px]" />
@@ -175,8 +182,8 @@ function SearchPage() {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Where to?"
-            aria-label="Search buses, stops, and places"
+            placeholder={t("Where to?")}
+            aria-label={t("Search buses, stops, and places")}
             aria-autocomplete="list"
             autoFocus
             className="search-input min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-mute focus:outline-none"
@@ -185,7 +192,7 @@ function SearchPage() {
             <button
               type="button"
               onClick={() => setQuery("")}
-              aria-label="Clear search"
+              aria-label={t("Clear search")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-65 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             >
               <FigmaIcon name="close" size={16} className="h-4 w-4" />
@@ -209,7 +216,7 @@ function SearchPage() {
                 <FigmaIcon name={item.icon} size={16} className="h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-medium text-ink">{item.label}</span>
+                <span className="block text-sm font-medium text-ink">{t(item.label)}</span>
                 {item.detail ? (
                   <span className="block truncate text-sm text-mute">
                     {item.detail}
@@ -236,57 +243,89 @@ function SearchPage() {
               );
 
               return (
-                <button
+                <div
                   key={bus.id}
-                  type="button"
-                  onClick={() => openBus(bus)}
-                  className="flex w-full items-center gap-3 border-b border-hairline px-5 py-3 text-left transition-colors hover:bg-canvas-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                  className="flex items-center border-b border-hairline transition-colors hover:bg-canvas-muted"
                 >
-                  <ResultIcon type="bus" neutral={!isFavorite} />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-sm font-semibold text-ink">{bus.name}</strong>
-                    <span className="block truncate text-sm text-mute">{bus.detail}</span>
-                  </span>
-                  {isFavorite ? (
-                    <FigmaIcon
-                      name="favorites"
-                      size={24}
-                      className="icon-brand-blue h-6 w-6 shrink-0"
-                      alt={`Route ${bus.route} saved favorite`}
-                    />
+                  <button
+                    type="button"
+                    onClick={() => openBus(bus)}
+                    className="flex min-w-0 flex-1 items-center gap-3 px-5 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                  >
+                    <ResultIcon type="bus" neutral={!isFavorite} />
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-sm font-semibold text-ink">{bus.name}</strong>
+                      <span className="block truncate text-sm text-mute">{bus.detail}</span>
+                    </span>
+                  </button>
+                  {favoriteBusId ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleFavoriteBus(favoriteBusId)}
+                      aria-label={`${isFavorite ? "Remove" : "Save"} Route ${bus.route} ${isFavorite ? "from" : "to"} favorites`}
+                      aria-pressed={isFavorite}
+                      className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    >
+                      <FigmaIcon
+                        name={isFavorite ? "favorites" : "favorite"}
+                        size={24}
+                        className={`h-6 w-6 ${isFavorite ? "icon-brand-blue" : "icon-favorite-outline"}`}
+                      />
+                    </button>
                   ) : null}
-                </button>
+                </div>
               );
             })}
           </ResultSection>
 
           <ResultSection title="Stops">
-            {stopMatches.map((stop) => (
-              <Link
-                key={stop.id}
-                to="/stops/$id"
-                params={{ id: stop.id }}
-                className="flex items-center gap-3 border-b border-hairline px-5 py-3"
-              >
-                <ResultIcon type="stop" neutral />
-                <span className="min-w-0">
-                  <strong className="block text-sm font-semibold text-ink">{stop.name}</strong>
-                  <span className="block text-sm text-mute">Stop {stop.id}</span>
-                  {stop.lines.length ? (
-                    <span className="block truncate text-sm text-mute">
-                      Lines: {stop.lines.join(", ")}
+            {stopMatches.map((stop) => {
+              const isFavorite = favoriteStopIds.includes(stop.id);
+
+              return (
+                <div
+                  key={stop.id}
+                  className="flex items-center border-b border-hairline transition-colors hover:bg-canvas-muted"
+                >
+                  <Link
+                    to="/stops/$id"
+                    params={{ id: stop.id }}
+                    className="flex min-w-0 flex-1 items-center gap-3 px-5 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+                  >
+                    <ResultIcon type="stop" neutral={!isFavorite} />
+                    <span className="min-w-0">
+                      <strong className="block text-sm font-semibold text-ink">{stop.name}</strong>
+                      <span className="block text-sm text-mute">{t("Stop {id}", { id: stop.id })}</span>
+                      {stop.lines.length ? (
+                        <span className="block truncate text-sm text-mute">
+                          {t("Lines: {lines}", { lines: stop.lines.join(", ") })}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-              </Link>
-            ))}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavoriteStop(stop.id)}
+                    aria-label={`${isFavorite ? "Remove" : "Save"} ${stop.name} ${isFavorite ? "from" : "to"} favorites`}
+                    aria-pressed={isFavorite}
+                    className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <FigmaIcon
+                      name={isFavorite ? "favorites" : "favorite"}
+                      size={24}
+                      className={`h-6 w-6 ${isFavorite ? "icon-brand-blue" : "icon-favorite-outline"}`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
             {isStopSearchPending ? (
               <p className="px-5 py-3 text-sm text-body" role="status">
-                Searching official stops…
+                {t("Searching official stops…")}
               </p>
             ) : officialStopsQuery.isError ? (
               <p className="px-5 py-3 text-sm text-body" role="status">
-                Official stop search is unavailable. Preview matches are shown.
+                {t("Official stop search is unavailable. Preview matches are shown.")}
               </p>
             ) : null}
           </ResultSection>
@@ -310,7 +349,7 @@ function SearchPage() {
 
           {!isStopSearchPending && !hasAnyMatches ? (
             <p className="px-5 py-8 text-center text-sm text-body" role="status">
-              No buses, stops, or places match “{query.trim()}”.
+              {t("No buses, stops, or places match “{query}”.", { query: query.trim() })}
             </p>
           ) : null}
         </div>
@@ -332,10 +371,12 @@ function SearchPage() {
                     <strong className="block truncate text-sm font-bold text-ink">
                       {stop.name}
                     </strong>
-                    <span className="block text-sm text-mute">Stop {stop.id}</span>
+                    <span className="block text-sm text-mute">{t("Stop {id}", { id: stop.id })}</span>
                     {favoriteLinesByStop.get(stop.id)?.length ? (
                       <span className="block truncate text-sm text-mute">
-                        Lines: {favoriteLinesByStop.get(stop.id)?.join(", ")}
+                        {t("Lines: {lines}", {
+                          lines: favoriteLinesByStop.get(stop.id)?.join(", ") ?? "",
+                        })}
                       </span>
                     ) : null}
                   </span>
@@ -348,7 +389,7 @@ function SearchPage() {
               ))
             ) : (
               <p className="px-5 py-4 text-sm text-body">
-                Saved stops will appear here.
+                {t("Saved stops will appear here.")}
               </p>
             )}
           </ResultSection>
@@ -382,9 +423,10 @@ function ResultSection({
   title: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <section className="border-b-[7px] border-canvas-soft bg-canvas">
-      <h2 className="px-5 pb-2 pt-4 text-sm font-medium text-ink">{title}</h2>
+      <h2 className="px-5 pb-2 pt-4 text-sm font-medium text-ink">{t(title)}</h2>
       {children}
     </section>
   );

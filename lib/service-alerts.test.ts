@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   alertAffectsBusAtStop,
   alertAffectsRoute,
+  getAlertBannerDescription,
+  getAlertBannerHeading,
   getAlertNotificationCopy,
   getAlertPresentationTone,
   getCompactStopAlertLabel,
@@ -44,7 +46,10 @@ describe("exact service alert matching", () => {
   });
 
   test("uses presentation-ready disruption copy without demo markers", () => {
-    expect(getServiceAlertForBus("1l-437")?.title).toBe("DETOUR IN EFFECT");
+    expect(getServiceAlertForBus("1l-437")?.title).toBe("Detour in effect");
+    expect(getServiceAlertForBus("1l-437")?.description).toBe(
+      "Route 1L is detoured near S Beretania St + Bishop St. Some stops may be skipped. Allow extra time.",
+    );
     expect(getFavoriteStopDisruptionPreview("1712")?.description).not.toMatch(
       /demo|portfolio/i,
     );
@@ -186,7 +191,7 @@ describe("exact service alert matching", () => {
         }),
         "437",
       ),
-    ).toBe("Lines 1L and C are temporarily skipping this stop.");
+    ).toBe("Buses 1L and C are temporarily skipping this stop.");
     expect(
       getStopAlertLabel(
         alert({
@@ -196,7 +201,36 @@ describe("exact service alert matching", () => {
         }),
         "437",
       ),
-    ).toBe("Line 1L is temporarily skipping this stop.");
+    ).toBe("Bus 1L is temporarily skipping this stop.");
+  });
+
+  test("uses a short alert heading with contextual body copy in alert blades", () => {
+    const skippedStop = alert({
+      title: "Stop 1016 temporarily closed",
+      description: "Lines 3 and 7 are temporarily skipping Stop 1016.",
+      type: "stop-closure",
+      affectedRoutes: ["3", "7"],
+      affectedStops: ["1016"],
+    });
+    const weatherDisruption = alert({
+      title: "Weather is affecting Line 65 service near this stop.",
+      description: "Line 65 westbound service is unavailable near Stop 1712.",
+      type: "service-disruption",
+      affectedRoutes: ["65"],
+      affectedStops: ["1712"],
+    });
+
+    expect(getAlertBannerHeading(alert())).toBe("Detour in effect");
+    expect(getAlertBannerHeading(skippedStop)).toBe("Stop skipped");
+    expect(getAlertBannerDescription(skippedStop, "1016")).toBe(
+      "Buses 3 and 7 are temporarily skipping this stop.",
+    );
+    expect(getAlertBannerHeading(weatherDisruption)).toBe(
+      "Weather disruption",
+    );
+    expect(getAlertBannerDescription(weatherDisruption, "1712")).toBe(
+      weatherDisruption.description,
+    );
   });
 
   test("uses compact impact labels in favorite stops", () => {
@@ -234,7 +268,10 @@ describe("exact service alert matching", () => {
     expect(weatherPreview?.source).toBe("holohele-demo");
     expect(weatherPreview?.affectedRoutes).toEqual(["65"]);
     expect(getStopAlertLabel(weatherPreview!, "1712")).toBe(
-      "Weather is affecting Line 65 service near this stop.",
+      "Weather disruption",
+    );
+    expect(weatherPreview?.description).toBe(
+      "Route 65 westbound is not serving Stop 1712. Nearby stops may be crowded.",
     );
     expect(closurePreview?.source).toBe("holohele-demo");
     expect(closurePreview?.type).toBe("stop-closure");

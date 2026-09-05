@@ -13,12 +13,14 @@ import {
   SERVICE_ALERT_REFRESH_MS,
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
+import { useI18n } from "@/lib/i18n";
 
 interface AlertDetailsSearch {
   bus?: string;
   stop?: string;
   routePage?: string;
   demo?: DemoAlertScenario;
+  from?: "favorites";
 }
 
 export const Route = createFileRoute("/alerts_/$alertId")({
@@ -27,11 +29,13 @@ export const Route = createFileRoute("/alerts_/$alertId")({
     stop: typeof search.stop === "string" ? search.stop : undefined,
     routePage: typeof search.routePage === "string" ? search.routePage : undefined,
     demo: parseDemoAlertScenario(search.demo),
+    from: search.from === "favorites" ? "favorites" : undefined,
   }),
   component: AlertDetailPage,
 });
 
 function AlertDetailPage() {
+  const { t } = useI18n();
   const { alertId } = Route.useParams();
   const search = Route.useSearch();
   const alertsQuery = useQuery({
@@ -52,17 +56,17 @@ function AlertDetailPage() {
       <header className="flex items-center border-b border-hairline bg-canvas px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <AlertDetailBackLink search={search} />
         <h1 className="flex-1 text-center text-base font-semibold text-ink">
-          Alert details
+          {t("Alert details")}
         </h1>
         <span className="h-10 w-8" aria-hidden="true" />
       </header>
 
       <section className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
         {!search.demo && alertsQuery.isPending ? (
-          <AlertDetailState>Loading alert details…</AlertDetailState>
+          <AlertDetailState>{t("Loading alert details…")}</AlertDetailState>
         ) : !search.demo && alertsQuery.isError ? (
           <AlertDetailState>
-            This service alert could not be loaded. Check your connection and try again.
+            {t("This service alert could not be loaded. Check your connection and try again.")}
           </AlertDetailState>
         ) : alert ? (
           <>
@@ -84,7 +88,7 @@ function AlertDetailPage() {
           </>
         ) : (
           <AlertDetailState>
-            This alert is no longer listed. It may have ended since you last viewed it.
+            {t("This alert is no longer listed. It may have ended since you last viewed it.")}
           </AlertDetailState>
         )}
       </section>
@@ -93,33 +97,40 @@ function AlertDetailPage() {
 }
 
 function AlertDetailBackLink({ search }: { search: AlertDetailsSearch }) {
+  const { t } = useI18n();
   const className =
     "flex h-10 w-8 items-center justify-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
   const icon = <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />;
 
   if (search.bus) {
     return (
-      <Link to="/buses/$busId" params={{ busId: search.bus }} aria-label="Back to bus" className={className}>
+      <Link to="/buses/$busId" params={{ busId: search.bus }} aria-label={t("Back to bus")} className={className}>
         {icon}
       </Link>
     );
   }
   if (search.stop) {
     return (
-      <Link to="/stops/$id" params={{ id: search.stop }} aria-label="Back to stop" className={className}>
+      <Link
+        to="/stops/$id"
+        params={{ id: search.stop }}
+        search={{ from: search.from }}
+        aria-label={t("Back to stop")}
+        className={className}
+      >
         {icon}
       </Link>
     );
   }
   if (search.routePage) {
     return (
-      <Link to="/routes/$routeId" params={{ routeId: search.routePage }} aria-label="Back to route" className={className}>
+      <Link to="/routes/$routeId" params={{ routeId: search.routePage }} aria-label={t("Back to route")} className={className}>
         {icon}
       </Link>
     );
   }
   return (
-    <Link to="/alerts" aria-label="Back to rider alerts" className={className}>
+    <Link to="/alerts" aria-label={t("Back to rider alerts")} className={className}>
       {icon}
     </Link>
   );

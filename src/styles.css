@@ -142,6 +142,23 @@ body {
     hue-rotate(191deg) brightness(86%) contrast(105%);
 }
 
+.icon-favorite-outline {
+  filter: brightness(0);
+  opacity: 0.5;
+}
+
+.trip-timeline-dotted {
+  width: 5px;
+  background-image: radial-gradient(
+    circle,
+    var(--charcoal-500) 0 2px,
+    transparent 2.25px
+  );
+  background-position: center top;
+  background-repeat: repeat-y;
+  background-size: 5px 10px;
+}
+
 h1,
 h2,
 h3 {
@@ -387,6 +404,20 @@ h3 {
   height: 0.25rem;
   border-radius: var(--radius-pill);
   background: var(--charcoal-500);
+}
+
+.trip-details-sheet {
+  transition: top 260ms ease-out;
+}
+
+.trip-details-sheet[data-dragging="true"] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-details-sheet {
+    transition: none;
+  }
 }
 
 .search-input::-webkit-search-cancel-button {

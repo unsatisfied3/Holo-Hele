@@ -81,6 +81,36 @@ export function ScheduleIcon({ className = "" }: { className?: string }) {
   );
 }
 
+/** Calendar date selector — tint via text color on the parent or className. */
+export function CalendarIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <rect
+        x="2.5"
+        y="4"
+        width="15"
+        height="13.5"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M2.5 8H17.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M6 2.5V5.5M14 2.5V5.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Settings sliders — follows the same monochrome, tintable icon treatment. */
 export function SettingsIcon({ className = "" }: { className?: string }) {
   return (

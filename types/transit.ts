@@ -201,6 +201,34 @@ export interface JourneyOption {
   };
 }
 
+export type WalkingManeuver =
+  | "start"
+  | "straight"
+  | "slight-left"
+  | "slight-right"
+  | "left"
+  | "right"
+  | "destination";
+
+export interface WalkingRouteStep {
+  instruction: string;
+  maneuver: WalkingManeuver;
+}
+
+export interface WalkingRouteLeg {
+  path: JourneyCoordinate[];
+  steps: WalkingRouteStep[];
+  distance: string;
+  durationMinutes: number;
+}
+
+export interface WalkingDirectionsResponse {
+  start?: WalkingRouteLeg;
+  end?: WalkingRouteLeg;
+  dataSource: "routed" | "partial" | "approximate";
+  error?: string;
+}
+
 export interface TripPlanResponse {
   journeys: JourneyOption[];
   origin: JourneyLocation;

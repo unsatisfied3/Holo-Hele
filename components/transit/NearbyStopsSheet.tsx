@@ -7,6 +7,7 @@ import { FigmaIcon } from "@/components/icons/FigmaIcon";
 import { RouteArrivalRow } from "@/components/transit/RouteArrivalRow";
 import { StopListItem } from "@/components/transit/StopListItem";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface NearbyStopsSheetProps {
   stops: NearbyStopResult[];
@@ -47,11 +48,12 @@ export function NearbyStopsSheet({
   expanded,
   onExpandedChange,
 }: NearbyStopsSheetProps) {
+  const { locale, t } = useI18n();
   const listItems = buildHomeListItems(stops);
 
   return (
     <section
-      aria-label="Nearby stops"
+      aria-label={t("Nearby stops")}
       className={cn(
         "home-screen__sheet pointer-events-auto flex flex-col border-t border-hairline bg-canvas",
         expanded ? "home-screen__sheet--expanded" : "home-screen__sheet--collapsed",
@@ -63,7 +65,7 @@ export function NearbyStopsSheet({
         onClick={() => onExpandedChange(!expanded)}
         className="flex w-full items-center justify-center gap-2 border-b border-hairline px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <span className="text-base font-semibold text-ink">Nearby Stops</span>
+        <span className="text-base font-semibold text-ink">{t("Nearby Stops")}</span>
         <FigmaIcon
           name="chevronDown"
           size={16}
@@ -74,12 +76,12 @@ export function NearbyStopsSheet({
       {expanded ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
-            <p className="py-6 text-center text-sm text-body">Loading nearby stops…</p>
+            <p className="py-6 text-center text-sm text-body">{t("Loading nearby stops…")}</p>
           ) : error ? (
             <p className="px-4 py-6 text-center text-sm text-body">{error}</p>
           ) : listItems.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-body">
-              No nearby stops found for this area.
+              {t("No nearby stops found for this area.")}
             </p>
           ) : (
             <ul className="divide-y divide-hairline">
@@ -106,7 +108,9 @@ export function NearbyStopsSheet({
 
           {fetchedAt ? (
             <p className="px-4 pb-4 pt-2 text-xs text-mute">
-              Updated {new Date(fetchedAt).toLocaleTimeString()}
+              {t("Updated {time}", {
+                time: new Date(fetchedAt).toLocaleTimeString(locale),
+              })}
             </p>
           ) : null}
         </div>

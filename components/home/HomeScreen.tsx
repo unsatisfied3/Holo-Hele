@@ -16,11 +16,13 @@ import {
   walkMinutesFromMeters,
 } from "@/lib/thebus/stops";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import type { NearbyStopResult, StopLocation } from "@/types/transit";
 
 const DEFAULT_CENTER: [number, number] = [21.3047, -157.8567];
 
 export function HomeScreen() {
+  const { t } = useI18n();
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [userLocation, setUserLocation] = useState<[number, number] | undefined>();
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -112,7 +114,7 @@ export function HomeScreen() {
     (nearbyQuery.error instanceof Error
       ? nearbyQuery.error.message
       : nearbyQuery.isError
-        ? "Unable to load nearby stops. Check your connection and try again."
+        ? t("Unable to load nearby stops. Check your connection and try again.")
         : null);
 
   return (

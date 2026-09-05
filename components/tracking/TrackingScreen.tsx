@@ -6,6 +6,7 @@ import { TrackingMap } from "@/components/tracking/TrackingMap";
 import { TrackingSummary } from "@/components/tracking/TrackingSummary";
 import { fetchStopArrivals, fetchTracking } from "@/lib/api/transit";
 import { getLocationPreference } from "@/lib/onboarding";
+import { useI18n } from "@/lib/i18n";
 import type { StopLocation } from "@/types/transit";
 
 interface TrackingScreenProps {
@@ -16,6 +17,7 @@ interface TrackingScreenProps {
 const LIVE_REFRESH_MS = 15_000;
 
 function TrackingLoadingState() {
+  const { t } = useI18n();
   return (
     <>
       <div
@@ -26,8 +28,8 @@ function TrackingLoadingState() {
         className="absolute inset-x-4 top-1/2 z-[1100] -translate-y-1/2 rounded-[var(--radius-xs)] border border-hairline bg-canvas px-4 py-3 text-center"
         role="status"
       >
-        <p className="text-sm font-medium text-ink">Locating your bus…</p>
-        <p className="mt-1 text-xs text-body">This can take a few seconds.</p>
+        <p className="text-sm font-medium text-ink">{t("Locating your bus…")}</p>
+        <p className="mt-1 text-xs text-body">{t("This can take a few seconds.")}</p>
       </div>
       <div className="tracking-summary pointer-events-none absolute inset-x-0 bottom-0 z-[1200] pb-[max(env(safe-area-inset-bottom),1rem)]">
         <div className="mx-auto h-28 w-full max-w-80 animate-pulse rounded-[var(--radius-xs)] border border-hairline bg-canvas motion-reduce:animate-none" />
@@ -43,18 +45,19 @@ function TrackingErrorState({
   message: string;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <div className="absolute inset-0 bg-canvas-soft" />
       <div className="absolute inset-x-6 top-1/2 z-[1100] -translate-y-1/2 rounded-[var(--radius-xs)] border border-hairline bg-canvas px-5 py-5 text-center">
-        <h2 className="text-base font-semibold text-ink">Bus location unavailable</h2>
+        <h2 className="text-base font-semibold text-ink">{t("Bus location unavailable")}</h2>
         <p className="mt-2 text-sm leading-relaxed text-body">{message}</p>
         <button
           type="button"
           onClick={onRetry}
           className="mt-4 min-h-10 rounded-[var(--radius-pill)] bg-primary px-5 py-2 text-sm font-medium text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          Try again
+          {t("Try again")}
         </button>
       </div>
     </>
@@ -62,6 +65,7 @@ function TrackingErrorState({
 }
 
 export function TrackingScreen({ stop, arrivalId }: TrackingScreenProps) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [userLocation, setUserLocation] = useState<[number, number] | undefined>();
 
@@ -133,7 +137,7 @@ export function TrackingScreen({ stop, arrivalId }: TrackingScreenProps) {
     (trackingQuery.error instanceof Error
       ? trackingQuery.error.message
       : trackingQuery.isError
-        ? "Unable to load bus tracking. Check your connection and try again."
+        ? t("Unable to load bus tracking. Check your connection and try again.")
         : null);
 
   return (
@@ -161,11 +165,11 @@ export function TrackingScreen({ stop, arrivalId }: TrackingScreenProps) {
 
           {error ? (
             <p className="absolute inset-x-4 top-[calc(max(env(safe-area-inset-top),0.75rem)+3.75rem)] z-[1200] rounded-[var(--radius-xs)] border border-hairline bg-canvas px-3 py-2 text-xs text-body">
-              Live update paused. Showing the last available location.
+              {t("Live update paused. Showing the last available location.")}
             </p>
           ) : !data.vehicleLocation && data.arrival.estimated ? (
             <p className="absolute inset-x-4 top-[calc(max(env(safe-area-inset-top),0.75rem)+3.75rem)] z-[1200] rounded-[var(--radius-xs)] border border-hairline bg-canvas px-3 py-2 text-xs text-body">
-              Vehicle location is temporarily unavailable. The map is centered on your stop.
+              {t("Vehicle location is temporarily unavailable. The map is centered on your stop.")}
             </p>
           ) : null}
 

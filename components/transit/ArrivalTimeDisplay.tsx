@@ -3,6 +3,7 @@ import {
   ScheduleIcon,
 } from "@/components/icons/FigmaIcon";
 import type { TheBusArrival } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 interface ArrivalTimeDisplayProps {
   arrival: TheBusArrival;
@@ -34,11 +35,14 @@ export function ArrivalTimeDisplay({
   arrival,
   colorNearLive = false,
 }: ArrivalTimeDisplayProps) {
+  const { t } = useI18n();
   const toneClass = arrivalToneClass(arrival, colorNearLive);
 
   if (arrival.estimated && arrival.minutesUntil != null) {
     const label =
-      arrival.minutesUntil === 0 ? "Now" : `${arrival.minutesUntil} min`;
+      arrival.minutesUntil === 0
+        ? t("Now")
+        : t("{minutes} min", { minutes: arrival.minutesUntil });
 
     return (
       <div
@@ -64,7 +68,7 @@ export function ArrivalTimeDisplay({
       <ScheduleIcon className={`mb-0.5 h-[11px] w-[11px] shrink-0 ${toneClass}`} />
       <div className="text-right leading-tight">
         <p className="text-sm font-semibold">{arrival.stopTime}</p>
-        <p className="text-[9px] font-medium">Scheduled time</p>
+        <p className="text-[9px] font-medium">{t("Scheduled time")}</p>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import type { LanguageCode } from "@/types/transit";
 const ONBOARDING_KEY = "holo-hele-onboarding-complete";
 const LANGUAGE_KEY = "holo-hele-language";
 const LOCATION_KEY = "holo-hele-use-location";
+export const LANGUAGE_CHANGE_EVENT = "holo-hele-language-change";
 
 export function isOnboardingComplete(): boolean {
   if (typeof window === "undefined") return false;
@@ -21,6 +22,7 @@ export function getSavedLanguage(): LanguageCode | null {
 
 export function saveLanguage(code: LanguageCode): void {
   window.localStorage.setItem(LANGUAGE_KEY, code);
+  window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
 }
 
 export function getLocationPreference(): boolean {

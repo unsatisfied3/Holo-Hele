@@ -5,6 +5,7 @@ import { LanguageOptionRow } from "@/components/onboarding/LanguageOptionRow";
 import { languages } from "@/lib/mock/languages";
 import { saveLanguage } from "@/lib/onboarding";
 import type { LanguageCode } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/onboarding/language")({
   component: LanguagePage,
@@ -12,19 +13,20 @@ export const Route = createFileRoute("/onboarding/language")({
 
 function LanguagePage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [selected, setSelected] = useState<LanguageCode>("en");
 
   return (
     <main className="app-shell flex min-h-dvh flex-col bg-canvas px-4 pb-[max(env(safe-area-inset-bottom),2.875rem)] pt-[max(env(safe-area-inset-top),3.5rem)]">
       <header className="mb-10">
-        <h1 className="text-2xl font-bold text-ink">Choose your language</h1>
+        <h1 className="text-2xl font-bold text-ink">{t("Choose your language")}</h1>
         <p className="mt-1 text-sm text-body">
-          Select your preferred language for Holo Hele.
+          {t("Select your preferred language for Holo Hele.")}
         </p>
       </header>
 
       <fieldset className="m-0 flex min-w-0 flex-1 flex-col gap-3.5 overflow-y-auto border-0 p-0">
-        <legend className="sr-only">Choose your language</legend>
+        <legend className="sr-only">{t("Choose your language")}</legend>
         {languages.map((option) => (
           <LanguageOptionRow
             key={option.code}
@@ -44,7 +46,7 @@ function LanguagePage() {
             void navigate({ to: "/onboarding/location" });
           }}
         >
-          Continue →
+          {t("Continue →")}
         </button>
       </div>
     </main>

@@ -349,7 +349,8 @@ Figma uses 2px radius and shadows on these — **use 8px + hairline, no shadow**
 ### Favorites
 
 Route: `/favorites`. Layout follows the Figma Flow 4 reference: centered title,
-pill search, working Buses/Stops tabs, and compact saved rows. Both saved stops
+pill search, working Stops/Buses tabs, and compact saved rows. **Stops** appears
+first and is selected by default; `?tab=buses` still opens Buses directly. Both saved stops
 and preview bus favorites are stored locally; preview favorites are seeded only
 when their storage key has never been initialized, so riders can still remove
 every item. The heart button removes an item, stop rows open arrivals, and bus
@@ -398,8 +399,10 @@ Route: `/settings`. Combines the app preferences with the Figma
 
 - Centered title, compact Holo Hele logo, and the real package version
 - **Preferences:** language, location, and service-alert notifications. The location switch represents the
-  rider’s preference and stays on when device permission is blocked; show a
-  clear permission message while map screens continue using their fallback.
+  rider’s preference and stays on when location cannot be accessed; show a
+  neutral, actionable browser/device-settings message while map screens continue
+  using their fallback. Do not show a redundant success message when location
+  access is working.
   Notification permission is requested only after the rider turns Service
   alerts on. When enabled, a secondary pale-blue test button appears.
 - **Resources:** FAQ, fares and passes, videos, system map, and rider alerts
@@ -422,7 +425,10 @@ Details remain text-first for affected lines, stops, and rider guidance. The
 Affected Lines and Affected Stops headings share the same 12px uppercase,
 semibold body-color style; route badges and stop text remain visually distinct.
 Bus-detail alert banners remain flat with no bottom border, matching the Figma
-reference.
+reference. Contextual alert blades use a two-line hierarchy: a short alert-type
+heading such as **Detour in effect**, **Weather Disruption**, **Stop skipped**,
+or **Stop closure**, followed by the rider-facing impact description. **View**
+remains aligned at the trailing edge and opens only that selected notice.
 Bus empty-state schedule links reuse the pale-blue action-button treatment
 instead of the black pill CTA.
 Banner View actions open `/alerts/[alertId]` for only the selected notice.
@@ -455,8 +461,8 @@ serve Stop 437, but the stop remains open to other routes. It is modeled as
 `stop-skipped`, not a whole-stop closure.
 Compact Favorites warnings, banners, and detail headers use the same semantic
 yellow detour or red closure treatment.
-Favorites uses terse impact labels—`STOP SKIPPED · 1L`, `STOP SKIPPED · 3, 7`,
-and `WEATHER DISRUPTION · 65`—while stop banners and alert details use complete
+Favorites uses consistently uppercase, terse impact labels—`DETOUR IN EFFECT`,
+`STOP SKIPPED · 1L`, `STOP SKIPPED · 3, 7`, and `WEATHER DISRUPTION · 65`—while stop banners and alert details use complete
 rider-facing sentences.
 
 ---
@@ -512,8 +518,11 @@ visually explicit.
 - `/search` filters categorized buses, stops, and places; an empty query shows
   saved stops and recent buses. Stop suggestions are debounced and come from
   the active official GTFS stop index, with a short result cap and scheduled
-  line metadata. Bus and place suggestions remain curated until general route
-  pages and a geocoder are available.
+  line metadata. Bus and stop result rows include separate, accessible heart
+  controls that update the same persisted state used by Favorites without
+  opening the result. Saved results use filled blue hearts; unsaved results use
+  lighter neutral outline hearts. Bus and place suggestions remain curated until
+  general route pages and a geocoder are available.
 - `/routes/[routeId]` opens a map-led route overview with route identity, the
   official GTFS shape, every scheduled stop, and a vertically connected stop
   sequence. The Hawaiʻi Kai example uses Route 1L and labels GTFS times as
@@ -572,29 +581,113 @@ visually explicit.
   it uses the labeled downtown preview origin. New permission requests remain
   attached to explicit onboarding and Settings actions.
 - `/directions/[journeyId]` is the itinerary-led **Trip Details** screen. A
-  compact, control-free route overview map provides geographic context without
-  competing with the content. The summary makes departure, arrival, duration,
-  modes, and live-versus-scheduled status immediately scannable. Below it, the
+  full-height, control-free route map remains interactive behind a non-modal
+  bottom sheet. The sheet opens at a balanced default height and snaps to
+  expanded, default, and collapsed positions when riders drag its handle. The
+  handle also supports tap and keyboard Arrow Up/Down control, and snap motion
+  is removed when reduced motion is requested. The collapsed position keeps
+  the trip summary and bottom actions available while exposing most of the map;
+  the expanded position prioritizes the complete itinerary. The summary leads
+  with a bus icon, the visible
+  ride duration, and **Arrive {time}**, then identifies only the route number.
+  The route headsign stays in the boarding section rather than being repeated
+  in the summary. It does not repeat mode chips or a separate bus-arrival sentence;
+  the bus row in the timeline owns live or scheduled arrival status. Below it, the
   complete walk–ride–walk timeline uses content-column dividers that do not cut
   across its vertical route rail. It follows the trip summary directly without
   a redundant **Trip itinerary** heading. Walking summaries expand into
   separated direction steps, an approximate-routing caution, and a destination
-  cue. Mode icons sit with their labels so the rail remains continuous and its
-  walking-versus-transit segments align cleanly. The bus number, route destination/name, ride duration,
-  and stop count share one expandable ride section; opening it reveals the
-  scheduled stop sequence and times without exposing stop IDs in the primary
-  itinerary.
+  cue. Each expanded Trip Details instruction includes a compact maneuver icon
+  for start, straight, slight-left/right, left/right, or destination. Turn icons
+  and turn language appear only when the journey data supplies that maneuver;
+  approximate GTFS connectors must not invent street-level turns. Trip Guidance
+  keeps its simpler connected step rail without these maneuver icons. Trip
+  Details requests both walking legs from the public Valhalla/OpenStreetMap
+  pedestrian router only after a rider opens an itinerary. Coordinates are sent
+  transiently and are not persisted or cached by Holo Hele. Returned geometry,
+  street-level narratives, duration, and distance replace the approximate leg
+  independently; a timeout or failed leg retains its existing straight connector
+  and approximate copy. This public endpoint is prototype-only. Production must
+  use a privacy-reviewed provider or a self-hosted routing service. Walking
+  icons sit directly on the timeline rail, while origin, boarding,
+  alighting, and destination labels use the larger stop-name hierarchy and
+  align with their rail markers. Walking icons and stop markers share the same
+  vertical center as their row timestamps, and the dotted rail keeps an equal
+  4px clear zone around both symbol types. That white clearance applies only to
+  dotted walking sides; solid blue ride segments connect directly into each
+  stop circle so the route never appears broken. Walking segments use one
+  continuous-looking, evenly repeated 10px dot rhythm without enlarging the
+  stop markers. The alighting stop has its own
+  row before the final walk. Solid rail segments represent the bus ride and
+  dotted segments represent walking; their joins remain continuous. The
+  walking-versus-transit segments align cleanly. The boarding stop is the
+  primary ride-section heading. Directly beneath it, the bus number, route
+  destination/name, and live or scheduled arrival appear together so riders
+  can confirm where and what to board. Ride duration and stop count remain in
+  the same expandable ride section; opening it reveals scheduled intermediate
+  stops and times directly on the primary left timeline rail instead of
+  introducing a second nested line inside the content column. Stop IDs remain
+  absent from the primary itinerary. Expanded walking directions do not repeat a separate
+  **Destination:** label immediately before the boarding-stop heading.
   Preview-origin implementation labels such as “Downtown Honolulu preview” and
   “Approximate device location” are not exposed here; an older fallback journey
   uses the neutral **Starting point** label, while permission-backed journeys
   use **Your location**.
   Matching service disruptions appear above the timeline. **Start** and
-  **Favorite** remain in a sticky bottom action row; **Start** continues into
-  the separate Live Direction experience.
-- `/live-directions/[journeyId]` provides deterministic, manually switchable
-  walking and onboard guidance states. The accessible middle progress control,
-  labeled **I’m on the bus**, is the explicit boarding confirmation; the app
-  does not infer boarding from GPS alone.
+  **Favorite** remain as content-hugging actions in a sticky bottom row;
+  **Start** continues into the separate **Trip Guidance** experience.
+- `/live-directions/[journeyId]` provides foreground, stop-aware walking,
+  onboard, and final-walk guidance under the honest **Trip Guidance** title;
+  “live” is reserved for information that is genuinely live rather than used as
+  a promise of turn-by-turn navigation. The live distance communicates approach.
+  With accurate foreground location, remaining inside the boarding-stop radius
+  briefly advances guidance from walking to waiting without a tap. Boarding is
+  inferred conservatively only when the rider and the exact selected live vehicle
+  leave the boarding stop together, remain near each other, and the rider's
+  movement is consistent with vehicle travel across multiple readings. The
+  manual **I’m at the stop** and **I’m on the bus** actions remain available as
+  fallbacks for missing or low-confidence data; they are not required when the
+  automatic signals are sufficient. Once onboard, the selected vehicle position
+  is preferred over rider GPS for monotonic progress through the journey's actual
+  GTFS stop sequence. Guidance announces two stops remaining, the next stop, and
+  the destination stop. It advances no more than one scheduled stop per position
+  update to reduce GPS jumps. After the final stop is reached and remains within
+  its radius briefly, guidance advances to the final walking leg automatically;
+  **I’m off the bus** remains available as a fallback. When location permission
+  was already granted, the rider marker follows the device position without
+  opening a new permission prompt. The boarding-stop arrival feed refreshes every 15 seconds
+  and displays a bus marker only when its GTFS trip ID exactly matches the
+  selected journey. Active and paused vehicle updates use live status
+  treatment. When a bus position is unavailable, the status row falls back to
+  the schedule clock and **Scheduled arrival · {time}** rather than presenting
+  the schedule as live data. Successful rider-location tracking stays quiet;
+  location text appears only while finding the rider or when access is paused
+  or unavailable. The route remains usable when either position is unavailable.
+  Accessible dots below the guidance card let riders tap or horizontally swipe
+  between journey previews. Previewing another part never confirms progress;
+  only automatic confidence checks or an explicit fallback action advance the
+  rider's actual journey state.
+  Live countdown copy is rider-centered and explicit: **Your bus arrives in
+  {n} min** or **Your bus is arriving now**, followed by update freshness when
+  available. It must not use the ambiguous **{n} min to your stop** phrasing.
+  Walking guidance presents the remaining distance above a compact connected
+  step rail. It surfaces specific turn language when supplied by the itinerary
+  and otherwise uses honest directional/continuation steps; GTFS-only journeys
+  must not invent street-level left or right turns. The rail ends at the final
+  step connector as an L rather than continuing below it. The map does not add
+  a separate direction arrow in this mode because the walking and transit paths
+  already communicate the route. A live bus countdown that exactly duplicates
+  the displayed walking duration is omitted; different live or scheduled
+  arrival information remains visible. While walking, the dashed remaining path
+  begins at the latest rider marker and rejoins the planned path ahead so the
+  marker and line stay visually connected at close zoom instead of preserving
+  a stale trip-planning origin.
+  Riders who have not enabled location are directed to the
+  intentional Settings control instead of receiving a surprise system prompt.
+  If rider and vehicle positions are both unavailable onboard, automatic stop
+  progress pauses while the scheduled sequence remains readable. This feature
+  does not run location tracking or deliver get-off notifications after the app
+  is closed or suspended.
 
 Official options use active service calendars, scheduled stop sequences and
 route shapes. An HEA estimate is attached only when its trip ID exactly matches

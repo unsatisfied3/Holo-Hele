@@ -16,6 +16,7 @@ import {
   createUserLocationMarkerHtml,
 } from "@/lib/figma-icons";
 import type { StopLocation } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 interface TransitMapProps {
   center: [number, number];
@@ -94,6 +95,7 @@ function StopMarkers({
   selectedStopId?: string;
   onStopSelect?: (stop: StopLocation) => void;
 }) {
+  const { t } = useI18n();
   const [, setViewportRevision] = useState(0);
   const map = useMapEvents({
     moveend: () => setViewportRevision((revision) => revision + 1),
@@ -150,8 +152,8 @@ function StopMarkers({
       <Marker
         key={stop.id}
         position={[stop.lat, stop.lng]}
-        title={`${stop.name}, stop ${stop.id}`}
-        alt={`Bus stop ${stop.name}`}
+        title={t("{name}, stop {id}", { name: stop.name, id: stop.id })}
+        alt={t("Bus stop {name}", { name: stop.name })}
         icon={icon}
         zIndexOffset={isSelected ? 1000 : isTransitCenter ? 500 : 0}
         eventHandlers={{ click: () => onStopSelect?.(stop) }}
@@ -167,6 +169,7 @@ export function TransitMap({
   userLocation,
   onStopSelect,
 }: TransitMapProps) {
+  const { t } = useI18n();
   return (
     <MapContainer
       center={center}
@@ -186,11 +189,11 @@ export function TransitMap({
         <Marker
           position={userLocation}
           icon={userIcon}
-          title="Your location"
-          alt="Your location"
+          title={t("Your location")}
+          alt={t("Your location")}
           zIndexOffset={3000}
         >
-          <Popup>You are here</Popup>
+          <Popup>{t("You are here")}</Popup>
         </Marker>
       ) : null}
 

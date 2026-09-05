@@ -7,6 +7,7 @@ import type {
   StopsAwaySource,
   TheBusArrival,
 } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 interface TrackingSummaryProps {
   stop: StopLocation;
@@ -22,12 +23,13 @@ function trackingStatus(
   active: boolean,
   stopsAway: number | null,
   stopsAwaySource: StopsAwaySource,
+  t: (message: string, values?: Record<string, string | number>) => string,
 ): string {
   if (
     arrival.minutesUntil === 0 ||
     (active && stopsAwaySource === "exact" && stopsAway === 0)
   ) {
-    return "Arriving now";
+    return t("Arriving now");
   }
 
   if (
@@ -36,20 +38,20 @@ function trackingStatus(
     stopsAway != null &&
     stopsAway > 2
   ) {
-    return `Stops away: ${stopsAway}`;
+    return t("Stops away: {count}", { count: stopsAway });
   }
 
   if (arrival.minutesUntil != null) {
-    return `Arrives in ${arrival.minutesUntil} min`;
+    return t("Arrives in {minutes} min", { minutes: arrival.minutesUntil });
   }
 
   if (active && stopsAwaySource === "estimated" && stopsAway != null) {
-    return `About ${stopsAway} stops away`;
+    return t("About {count} stops away", { count: stopsAway });
   }
 
   return arrival.estimated
-    ? `Expected at ${arrival.stopTime}`
-    : `Scheduled for ${arrival.stopTime}`;
+    ? t("Expected at {time}", { time: arrival.stopTime })
+    : t("Scheduled for {time}", { time: arrival.stopTime });
 }
 
 export function TrackingSummary({
@@ -60,6 +62,7 @@ export function TrackingSummary({
   stopsAwaySource,
   onArrivalSelect,
 }: TrackingSummaryProps) {
+  const { t } = useI18n();
   const carouselRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndex = Math.max(
@@ -116,14 +119,14 @@ export function TrackingSummary({
 
   return (
     <section
-      aria-label="Buses serving this stop"
+      aria-label={t("Buses serving this stop")}
       className="tracking-summary pointer-events-none absolute inset-x-0 bottom-0 z-[1200] pb-[max(env(safe-area-inset-bottom),1rem)]"
     >
       <div className="pointer-events-auto mx-auto w-full max-w-80">
         <div
           ref={carouselRef}
           onScroll={settleCarousel}
-          className="tracking-carousel flex snap-x snap-mandatory overflow-x-auto rounded-[var(--radius-md)]"
+          className="tracking-carousel flex items-start snap-x snap-mandatory overflow-x-auto rounded-[var(--radius-md)]"
         >
           {arrivals.map((arrival) => {
             const active = arrival.id === activeArrivalId;
@@ -154,6 +157,7 @@ export function TrackingSummary({
                       active,
                       stopsAway,
                       stopsAwaySource,
+                      t,
                     )}
                   </strong>
                 </p>
@@ -165,13 +169,13 @@ export function TrackingSummary({
         {arrivals.length > 1 ? (
           <div
             className="mt-3 flex items-center justify-center gap-1.5"
-            aria-label="Choose a bus to track"
+            aria-label={t("Choose a bus to track")}
           >
             {arrivals.map((arrival, index) => (
               <button
                 key={arrival.id}
                 type="button"
-                aria-label={`Track route ${arrival.route}, bus ${index + 1} of ${arrivals.length}`}
+                aria-label={t("Track route {route}, bus {current} of {total}", { route: arrival.route, current: index + 1, total: arrivals.length })}
                 aria-current={index === activeIndex ? "true" : undefined}
                 onClick={() => selectIndex(index)}
                 className={`h-2 w-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-transit-blue ${

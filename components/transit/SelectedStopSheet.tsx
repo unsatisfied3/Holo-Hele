@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
 
 import type { NearbyStopResult, TheBusArrival } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
-function formatRouteTime(arrival: TheBusArrival | undefined): string {
+function formatRouteTime(arrival: TheBusArrival | undefined, t: (message: string, values?: Record<string, string | number>) => string): string {
   if (!arrival) return "—";
   if (!arrival.estimated) return arrival.stopTime;
   if (arrival.minutesUntil == null) return arrival.stopTime;
-  if (arrival.minutesUntil === 0) return "Now";
-  return `${arrival.minutesUntil} min`;
+  if (arrival.minutesUntil === 0) return t("Now");
+  return t("{minutes} min", { minutes: arrival.minutesUntil });
 }
 
 export function SelectedStopSheet({
@@ -19,18 +20,19 @@ export function SelectedStopSheet({
   loading?: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const { stop, lines, arrivals } = stopResult;
   const visibleLines = lines.slice(0, 12);
 
   return (
     <section
-      aria-label={`Selected stop ${stop.name}`}
+      aria-label={t("Selected stop {name}", { name: stop.name })}
       className="home-screen__sheet home-screen__selected-stop absolute inset-x-0 bottom-0 z-[1000] overflow-x-hidden overflow-y-auto rounded-t-[var(--radius-xl)] border-t border-hairline bg-canvas"
     >
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close stop details"
+        aria-label={t("Close stop details")}
         className="flex h-6 w-full items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-transit-blue"
       >
         <span className="h-1 w-8 rounded-full bg-charcoal-500" />
@@ -47,13 +49,12 @@ export function SelectedStopSheet({
         </div>
 
         <p className="mt-[10px] text-xs font-normal uppercase tracking-[0.02em] text-mute">
-          {loading ? "Loading services…" : `${lines.length} services`}
+          {loading ? t("Loading services…") : t("{count} services", { count: lines.length })}
         </p>
 
         {stopResult.error ? (
           <p className="mt-[10px] text-xs leading-relaxed text-body">
-            Service information is temporarily unavailable. You can still open
-            this stop’s arrivals page.
+            {t("Service information is temporarily unavailable. You can still open this stop’s arrivals page.")}
           </p>
         ) : null}
 
@@ -63,7 +64,7 @@ export function SelectedStopSheet({
         >
           {visibleLines.map((line) => {
             const arrival = arrivals.find((item) => item.route === line);
-            const routeTime = formatRouteTime(arrival);
+            const routeTime = formatRouteTime(arrival, t);
             const isArrivingNow = arrival?.estimated && arrival.minutesUntil === 0;
             const label = `Route ${line}, ${arrival?.estimated ? "arriving" : "scheduled"} ${routeTime}`;
             const content = (
@@ -119,14 +120,14 @@ export function SelectedStopSheet({
             params={{ id: stop.id }}
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-xs)] bg-brand-blue px-3 text-sm font-bold text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transit-blue"
           >
-            Arrivals
+            {t("Arrivals")}
           </Link>
           <Link
             to="/plan"
             search={{ destination: stop.name }}
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue bg-canvas px-3 text-sm font-normal text-brand-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transit-blue"
           >
-            Direction
+            {t("Direction")}
           </Link>
         </div>
       </div>

@@ -4,6 +4,7 @@ import {
   completeOnboarding,
   saveLocationPreference,
 } from "@/lib/onboarding";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/onboarding/location")({
   component: LocationPage,
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/onboarding/location")({
 
 function LocationPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   function finishOnboarding(useLocation: boolean) {
     saveLocationPreference(useLocation);
@@ -51,9 +53,9 @@ function LocationPage() {
 
       <section className="shrink-0 bg-canvas px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-10">
         <header className="mx-auto w-full max-w-[303px] text-center">
-          <h1 className="text-2xl font-bold text-ink">Enable Location</h1>
+          <h1 className="text-2xl font-bold text-ink">{t("Enable Location")}</h1>
           <p className="mt-1 text-sm font-normal leading-[21px] text-body">
-            Holo Hele needs your location to find nearby stops and routes
+            {t("Holo Hele needs your location to find nearby stops and routes")}
           </p>
         </header>
 
@@ -63,14 +65,14 @@ function LocationPage() {
             type="button"
             onClick={handleAllowAccess}
           >
-            Allow Access
+            {t("Allow Access")}
           </button>
           <button
             className="flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] bg-canvas px-5 text-sm font-normal text-body transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
             type="button"
             onClick={() => finishOnboarding(false)}
           >
-            Not Now
+            {t("Not Now")}
           </button>
         </div>
       </section>

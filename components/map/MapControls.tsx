@@ -2,6 +2,7 @@
 
 import { useMap } from "react-leaflet";
 import { FigmaIcon } from "@/components/icons/FigmaIcon";
+import { useI18n } from "@/lib/i18n";
 
 interface MapControlsProps {
   center: [number, number];
@@ -17,6 +18,7 @@ export function MapControls({
   className = "",
 }: MapControlsProps) {
   const map = useMap();
+  const { t } = useI18n();
 
   function zoomBy(delta: number) {
     map.setZoom(map.getZoom() + delta);
@@ -38,7 +40,7 @@ export function MapControls({
         <div className="overflow-hidden rounded-[var(--radius-md)] border border-hairline bg-canvas">
           <button
             type="button"
-            aria-label="Zoom in"
+            aria-label={t("Zoom in")}
             onClick={() => zoomBy(1)}
             className="flex h-10 w-12 items-center justify-center border-b border-hairline transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
@@ -46,7 +48,7 @@ export function MapControls({
           </button>
           <button
             type="button"
-            aria-label="Zoom out"
+            aria-label={t("Zoom out")}
             onClick={() => zoomBy(-1)}
             className="flex h-10 w-12 items-center justify-center transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
@@ -56,7 +58,7 @@ export function MapControls({
 
         <button
           type="button"
-          aria-label="Recenter map"
+          aria-label={t("Recenter map")}
           onClick={recenter}
           className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-hairline bg-canvas transition-colors hover:bg-canvas-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >

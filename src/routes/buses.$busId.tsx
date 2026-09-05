@@ -21,6 +21,7 @@ import {
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/buses/$busId")({
   component: FavoriteBusPage,
@@ -30,6 +31,7 @@ const actionButtonClass =
   "inline-flex min-h-10 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue-border bg-brand-blue-subtle p-2 text-brand-blue transition-colors hover:bg-brand-blue-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
 
 function FavoriteBusPage() {
+  const { t } = useI18n();
   const { busId } = Route.useParams();
   const bus = getFavoriteBusById(busId);
   const favoriteBusIds = useFavoriteBusIds();
@@ -48,10 +50,10 @@ function FavoriteBusPage() {
   if (!bus) {
     return (
       <main className="app-shell flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold text-ink">Bus favorite unavailable</h1>
-        <p className="text-sm text-body">This saved bus is no longer in the preview list.</p>
+        <h1 className="text-xl font-semibold text-ink">{t("Bus favorite unavailable")}</h1>
+        <p className="text-sm text-body">{t("This saved bus is no longer in the preview list.")}</p>
         <Link to="/favorites" className="rounded-[var(--radius-pill)] bg-primary px-5 py-3 text-sm font-medium text-on-primary">
-          Back to favorites
+          {t("Back to favorites")}
         </Link>
       </main>
     );
@@ -83,12 +85,12 @@ function FavoriteBusPage() {
       <header className="flex items-center border-b border-hairline bg-canvas px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <Link
           to="/favorites"
-          aria-label="Back to favorites"
+          aria-label={t("Back to favorites")}
           className="flex h-10 w-8 items-center justify-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />
         </Link>
-        <h1 className="flex-1 text-center text-base font-semibold text-ink">Bus</h1>
+        <h1 className="flex-1 text-center text-base font-semibold text-ink">{t("Bus")}</h1>
         <span className="h-10 w-8" aria-hidden="true" />
       </header>
 
@@ -121,9 +123,9 @@ function FavoriteBusPage() {
               size={20}
               className="icon-brand-blue h-5 w-5"
             />
-            <span className="text-sm font-medium">Schedule</span>
+            <span className="text-sm font-medium">{t("Schedule")}</span>
           </Link>
-          <Link to="/home" aria-label="Show stop on map" className={actionButtonClass}>
+          <Link to="/home" aria-label={t("Show stop on map")} className={actionButtonClass}>
             <FigmaIcon
               name="place"
               size={20}
@@ -132,7 +134,7 @@ function FavoriteBusPage() {
           </Link>
           <button
             type="button"
-            aria-label={isFavorite ? "Remove bus from favorites" : "Save bus to favorites"}
+            aria-label={t(isFavorite ? "Remove bus from favorites" : "Save bus to favorites")}
             aria-pressed={isFavorite}
             onClick={() => toggleFavoriteBus(bus.id)}
             className={cn(
@@ -143,22 +145,22 @@ function FavoriteBusPage() {
             <FigmaIcon
               name={isFavorite ? "favorites" : "favorite"}
               size={20}
-              className="icon-brand-blue h-5 w-5"
+              className={`h-5 w-5 ${isFavorite ? "icon-brand-blue" : "icon-favorite-outline"}`}
             />
           </button>
         </div>
       </section>
 
-      <section aria-label={`Route ${bus.route} arrivals`} className="min-h-0 flex-1 overflow-y-auto bg-canvas">
+      <section aria-label={t("Route {route} arrivals", { route: bus.route })} className="min-h-0 flex-1 overflow-y-auto bg-canvas">
         {arrivalsQuery.isPending ? (
-          <p className="px-4 py-8 text-center text-sm text-body">Loading arrivals…</p>
+          <p className="px-4 py-8 text-center text-sm text-body">{t("Loading arrivals…")}</p>
         ) : error ? (
           <p className="px-4 py-8 text-center text-sm text-body">{error}</p>
         ) : arrivals.length === 0 ? (
           <div className="px-6 py-10 text-center">
-            <h2 className="text-base font-semibold text-ink">No upcoming Route {bus.route} arrivals</h2>
+            <h2 className="text-base font-semibold text-ink">{t("No upcoming Route {route} arrivals", { route: bus.route })}</h2>
             <p className="mt-2 text-sm text-body">
-              Service has ended for today. Check tomorrow&apos;s schedule for the next departures.
+              {t("Service has ended for today. Check tomorrow's schedule for the next departures.")}
             </p>
             <Link
               to="/schedule"
@@ -170,7 +172,7 @@ function FavoriteBusPage() {
               }}
               className="mt-5 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue-border bg-brand-blue-subtle px-5 text-sm font-medium text-brand-blue transition-colors hover:bg-brand-blue-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
             >
-              View schedule
+              {t("View schedule")}
             </Link>
           </div>
         ) : (

@@ -15,6 +15,7 @@ import {
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
 import type { TransitAlert } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 interface AlertsSearch {
   alert?: string;
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/alerts")({
 });
 
 function RiderAlertsPage() {
+  const { t } = useI18n();
   const search = Route.useSearch();
   const alertsQuery = useQuery({
     queryKey: SERVICE_ALERTS_QUERY_KEY,
@@ -55,14 +57,14 @@ function RiderAlertsPage() {
       <header className="flex items-center border-b border-hairline px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)]">
         <AlertsBackLink search={search} />
         <h1 className="flex-1 text-center text-base font-semibold text-ink">
-          Rider Alerts
+          {t("Rider Alerts")}
         </h1>
         <span className="h-10 w-8" aria-hidden="true" />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-canvas-soft">
         {demoAlert ? (
-          <section aria-label="Selected service alert" className="bg-canvas px-4 py-5">
+          <section aria-label={t("Selected service alert")} className="bg-canvas px-4 py-5">
             <AlertList alerts={[demoAlert]} selectedId={search.alert ?? demoAlert.id} />
           </section>
         ) : null}
@@ -73,20 +75,20 @@ function RiderAlertsPage() {
         >
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="disruptions-heading" className="text-lg font-semibold text-ink">
-              Service disruptions
+              {t("Service disruptions")}
             </h2>
             {alertsQuery.data?.status !== "unavailable" ? (
               <span className="text-xs text-body">
-                {alertsQuery.data?.alerts.length ?? 0} active
+                {t("{count} active", { count: alertsQuery.data?.alerts.length ?? 0 })}
               </span>
             ) : null}
           </div>
 
           {alertsQuery.isPending ? (
-            <AlertState>Loading current service alerts…</AlertState>
+            <AlertState>{t("Loading current service alerts…")}</AlertState>
           ) : alertsQuery.isError ? (
             <AlertState>
-              Service alerts are temporarily unavailable. Try again later.
+              {t("Service alerts are temporarily unavailable. Try again later.")}
             </AlertState>
           ) : (
             <>
@@ -104,8 +106,8 @@ function RiderAlertsPage() {
               ) : (
                 <AlertState>
                   {alertsQuery.data?.status === "unavailable"
-                    ? "Current service alerts could not be loaded. The rest of Holo Hele is still available."
-                    : "TheBus has no current service disruptions listed."}
+                    ? t("Current service alerts could not be loaded. The rest of Holo Hele is still available.")
+                    : t("TheBus has no current service disruptions listed.")}
                 </AlertState>
               )}
 
@@ -131,33 +133,34 @@ function RiderAlertsPage() {
 }
 
 function AlertsBackLink({ search }: { search: AlertsSearch }) {
+  const { t } = useI18n();
   const className =
     "flex h-10 w-8 items-center justify-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
   const icon = <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />;
 
   if (search.bus) {
     return (
-      <Link to="/buses/$busId" params={{ busId: search.bus }} aria-label="Back to bus" className={className}>
+      <Link to="/buses/$busId" params={{ busId: search.bus }} aria-label={t("Back to bus")} className={className}>
         {icon}
       </Link>
     );
   }
   if (search.stop) {
     return (
-      <Link to="/stops/$id" params={{ id: search.stop }} aria-label="Back to stop" className={className}>
+      <Link to="/stops/$id" params={{ id: search.stop }} aria-label={t("Back to stop")} className={className}>
         {icon}
       </Link>
     );
   }
   if (search.routePage) {
     return (
-      <Link to="/routes/$routeId" params={{ routeId: search.routePage }} aria-label="Back to route" className={className}>
+      <Link to="/routes/$routeId" params={{ routeId: search.routePage }} aria-label={t("Back to route")} className={className}>
         {icon}
       </Link>
     );
   }
   return (
-    <Link to="/settings" aria-label="Back to settings" className={className}>
+    <Link to="/settings" aria-label={t("Back to settings")} className={className}>
       {icon}
     </Link>
   );

@@ -37,6 +37,7 @@ import { getStopById } from "@/lib/thebus/stops";
 import { cn } from "@/lib/utils";
 import type { StopLocation } from "@/types/transit";
 import type { TransitAlert } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 type FavoriteTab = "buses" | "stops";
 
@@ -80,9 +81,10 @@ function FavoriteButton({
 }
 
 function FavoritesPage() {
+  const { t } = useI18n();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const activeTab = search.tab ?? "buses";
+  const activeTab = search.tab ?? "stops";
   const [query, setQuery] = useState("");
   const favoriteStopIds = useFavoriteStopIds();
   const favoriteBusIds = useFavoriteBusIds();
@@ -145,15 +147,15 @@ function FavoritesPage() {
     <AppShell>
       <main className="flex h-full min-h-0 flex-col bg-canvas">
         <header className="border-b-[6px] border-canvas-soft bg-canvas px-4 pb-5 pt-[max(env(safe-area-inset-top),3rem)]">
-          <h1 className="text-center text-lg font-medium text-ink">Favorites</h1>
+          <h1 className="text-center text-lg font-medium text-ink">{t("Favorites")}</h1>
           <label className="mt-7 flex h-12 items-center gap-2.5 rounded-[var(--radius-pill)] border border-hairline bg-canvas-softer px-4">
             <FigmaIcon name="search" size={22} className="h-[22px] w-[22px] shrink-0" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
-              aria-label="Search favorites"
+              placeholder={t("Search")}
+              aria-label={t("Search favorites")}
               className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-mute focus:outline-none"
             />
           </label>
@@ -161,10 +163,10 @@ function FavoritesPage() {
 
         <div
           role="tablist"
-          aria-label="Favorite type"
+          aria-label={t("Favorite type")}
           className="grid grid-cols-2 border-b border-hairline bg-canvas py-1.5"
         >
-          {(["buses", "stops"] as const).map((tab) => (
+          {(["stops", "buses"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -181,7 +183,7 @@ function FavoritesPage() {
                   : "text-body hover:bg-canvas-softer",
               )}
             >
-              {tab === "buses" ? "Buses" : "Stops"}
+              {t(tab === "buses" ? "Buses" : "Stops")}
             </button>
           ))}
         </div>
@@ -192,10 +194,10 @@ function FavoritesPage() {
           <section className="flex flex-1 items-center justify-center px-8 pb-12 text-center">
             <div>
               <h2 className="text-base font-semibold text-ink">
-                No matching {activeTab}
+                {t(activeTab === "buses" ? "No matching buses" : "No matching stops")}
               </h2>
               <p className="mt-2 text-sm text-body">
-                Try a route, destination, stop name, or stop number.
+                {t("Try a route, destination, stop name, or stop number.")}
               </p>
             </div>
           </section>
@@ -223,8 +225,9 @@ function FavoriteBusList({
   buses: FavoriteBusDefinition[];
   liveAlerts: TransitAlert[];
 }) {
+  const { t } = useI18n();
   return (
-    <section aria-label="Favorite buses" className="min-h-0 flex-1 overflow-y-auto">
+    <section aria-label={t("Favorite buses")} className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
         {buses.map((bus) => {
           const liveServiceAlert = findAlertForBusAtStop(
@@ -265,7 +268,7 @@ function FavoriteBusList({
                 {serviceAlert ? (
                   <p
                     className={cn(
-                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium uppercase",
                       alertTone?.surface,
                       alertTone?.text,
                     )}
@@ -297,8 +300,9 @@ function FavoriteStopList({
   showcaseDisruptions: ShowcaseStopDisruption[];
   liveAlerts: TransitAlert[];
 }) {
+  const { t } = useI18n();
   return (
-    <section aria-label="Favorite stops" className="min-h-0 flex-1 overflow-y-auto">
+    <section aria-label={t("Favorite stops")} className="min-h-0 flex-1 overflow-y-auto">
       <ul className="px-4">
         {stops.map((stop) => {
           const serviceAlert =
@@ -326,7 +330,7 @@ function FavoriteStopList({
                 {serviceAlert ? (
                   <p
                     className={cn(
-                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                      "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium uppercase",
                       alertTone?.surface,
                       alertTone?.text,
                     )}
@@ -370,7 +374,7 @@ function FavoriteStopList({
                 <p className="mt-0.5 text-xs text-body">Stop {stop.id}</p>
                 <p
                   className={cn(
-                    "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium",
+                    "mt-1 inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-1.5 py-1 text-xs font-medium uppercase",
                     alertTone.surface,
                     alertTone.text,
                   )}
@@ -398,6 +402,7 @@ function FavoriteStopList({
 }
 
 function EmptyFavorites({ activeTab }: { activeTab: FavoriteTab }) {
+  const { t } = useI18n();
   return (
     <section className="flex flex-1 flex-col items-center justify-center px-8 pb-12 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas-softer">
@@ -408,16 +413,20 @@ function EmptyFavorites({ activeTab }: { activeTab: FavoriteTab }) {
         />
       </div>
       <h2 className="mt-5 text-lg font-semibold text-ink">
-        No favorite {activeTab} yet
+        {t(activeTab === "buses" ? "No favorite buses yet" : "No favorite stops yet")}
       </h2>
       <p className="mt-2 max-w-xs text-sm leading-relaxed text-body">
-        Save {activeTab === "buses" ? "a bus from its detail page" : "a stop from its arrival page"} and it will appear here.
+        {t(
+          activeTab === "buses"
+            ? "Save a bus from its detail page and it will appear here."
+            : "Save a stop from its arrival page and it will appear here.",
+        )}
       </p>
       <Link
         to="/home"
         className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-pill)] bg-primary px-5 text-sm font-medium text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        Explore nearby stops
+        {t("Explore nearby stops")}
       </Link>
     </section>
   );

@@ -15,6 +15,7 @@ import {
   SERVICE_ALERT_REFRESH_MS,
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
+import { useI18n } from "@/lib/i18n";
 import type { StopLocation } from "@/types/transit";
 
 interface StopDetailScreenProps {
@@ -32,6 +33,7 @@ function formatRefreshTime(iso: string): string {
 }
 
 export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScreenProps) {
+  const { t } = useI18n();
   const [tick, setTick] = useState(0);
 
   const arrivalsQuery = useQuery({
@@ -58,7 +60,7 @@ export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScre
     (arrivalsQuery.error instanceof Error
       ? arrivalsQuery.error.message
       : arrivalsQuery.isError
-        ? "Unable to load arrivals. Check your connection and try again."
+        ? t("Unable to load arrivals. Check your connection and try again.")
         : null);
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScre
               demo={
                 liveServiceAlert ? undefined : getStopDemoAlertScenario(stop.id)
               }
+              fromFavorites={fromFavorites}
             />
           ) : undefined
         }
@@ -98,17 +101,17 @@ export function StopDetailScreen({ stop, fromFavorites = false }: StopDetailScre
         <div className="stop-detail__refresh-bar sticky top-0 z-10 flex items-center gap-1 bg-canvas-soft px-4 py-1.5 text-xs">
           <FigmaIcon name="refresh" size={14} className="h-3.5 w-3.5 text-body" />
           <span className="text-body">
-            Last refresh: <strong className="font-bold text-ink">{refreshLabel}</strong>
+            {t("Last refresh: {time}", { time: refreshLabel })}
           </span>
         </div>
 
         {arrivalsQuery.isPending ? (
-          <p className="bg-canvas py-8 text-center text-sm text-body">Loading arrivals…</p>
+          <p className="bg-canvas py-8 text-center text-sm text-body">{t("Loading arrivals…")}</p>
         ) : error ? (
           <p className="bg-canvas px-4 py-8 text-center text-sm text-body">{error}</p>
         ) : (data?.arrivals.length ?? 0) === 0 ? (
           <p className="bg-canvas px-4 py-8 text-center text-sm text-body">
-            No upcoming arrivals for this stop.
+            {t("No upcoming arrivals for this stop.")}
           </p>
         ) : (
           <>

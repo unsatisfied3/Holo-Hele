@@ -3,14 +3,15 @@ import type {
   MapStopsResponse,
   DailyStopScheduleResponse,
   RouteScheduleResponse,
-  ScheduleDay,
   ServiceAlertsResponse,
   StopArrivalsResponse,
   StopLocation,
   StopSearchResponse,
   TrackingResponse,
+  JourneyOption,
   TripPlanResponse,
   TripTimeMode,
+  WalkingDirectionsResponse,
 } from "@/types/transit";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -100,11 +101,11 @@ export function fetchRouteSchedule(
 export function fetchDailyStopSchedule(
   stopId: string,
   route?: string,
-  day: ScheduleDay = "today",
+  serviceDate?: string,
 ): Promise<DailyStopScheduleResponse> {
   const search = new URLSearchParams({ stop: stopId });
   if (route) search.set("route", route);
-  if (day === "tomorrow") search.set("day", day);
+  if (serviceDate) search.set("date", serviceDate);
   return getJson(
     `/api/daily-schedule?${search}`,
     "Unable to load the daily schedule.",
@@ -143,5 +144,24 @@ export function fetchTripPlan({
   return getJson(
     `/api/trip-plan?${search}`,
     "Unable to plan this trip right now.",
+  );
+}
+
+export function fetchWalkingDirections(
+  journey: JourneyOption,
+): Promise<WalkingDirectionsResponse> {
+  const search = new URLSearchParams({
+    originLat: String(journey.origin.coordinate[0]),
+    originLng: String(journey.origin.coordinate[1]),
+    boardLat: String(journey.boardStop.coordinate[0]),
+    boardLng: String(journey.boardStop.coordinate[1]),
+    alightLat: String(journey.alightStop.coordinate[0]),
+    alightLng: String(journey.alightStop.coordinate[1]),
+    destinationLat: String(journey.destination.coordinate[0]),
+    destinationLng: String(journey.destination.coordinate[1]),
+  });
+  return getJson(
+    `/api/walking-directions?${search}`,
+    "Unable to load detailed walking directions.",
   );
 }

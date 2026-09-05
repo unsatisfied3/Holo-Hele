@@ -16,9 +16,9 @@ export const FAVORITE_DISRUPTION_STOP_IDS = ["1712", "1016"] as const;
 export const SERVICE_ALERT_PREVIEWS: TransitAlert[] = [
   {
     id: "preview-1l-downtown-detour",
-    title: "DETOUR IN EFFECT",
+    title: "Detour in effect",
     description:
-      "Line 1L is using a temporary downtown detour near S Beretania St + Bishop St. Some stops may be skipped or served from a nearby temporary stop. Allow extra travel time and check the stop signs in the area.",
+      "Route 1L is detoured near S Beretania St + Bishop St. Some stops may be skipped. Allow extra time.",
     affectedRoutes: ["1L"],
     affectedStops: ["437"],
     systemWide: false,
@@ -30,9 +30,9 @@ export const SERVICE_ALERT_PREVIEWS: TransitAlert[] = [
   },
   {
     id: "preview-stop-437-closure",
-    title: "Line 1L is temporarily skipping this stop.",
+    title: "Bus 1L is temporarily skipping this stop.",
     description:
-      "Line 1L riders should use the nearby alternative stop until Line 1L resumes service at Stop 437. Other lines may continue serving Stop 437 normally.",
+      "Bus 1L riders should use the nearby alternative stop until Bus 1L resumes service at Stop 437. Other buses may continue serving Stop 437 normally.",
     affectedRoutes: ["1L"],
     affectedStops: ["437"],
     systemWide: false,
@@ -44,9 +44,9 @@ export const SERVICE_ALERT_PREVIEWS: TransitAlert[] = [
   },
   {
     id: "preview-stop-1712-weather-service",
-    title: "Weather is affecting Line 65 service near this stop.",
+    title: "Weather disruption",
     description:
-      "Line 65 westbound service is unavailable near Stop 1712. Riders should check nearby stops before traveling.",
+      "Route 65 westbound is not serving Stop 1712. Nearby stops may be crowded.",
     affectedRoutes: ["65"],
     affectedStops: ["1712"],
     systemWide: false,
@@ -60,7 +60,7 @@ export const SERVICE_ALERT_PREVIEWS: TransitAlert[] = [
     id: "preview-stop-1016-closure",
     title: "Stop 1016 temporarily closed",
     description:
-      "Lines 3 and 7 are temporarily skipping Stop 1016. Other lines may continue serving this stop normally.",
+      "Buses 3 and 7 are temporarily skipping Stop 1016. Other buses may continue serving this stop normally.",
     affectedRoutes: ["3", "7"],
     affectedStops: ["1016"],
     systemWide: false,

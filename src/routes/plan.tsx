@@ -22,6 +22,7 @@ import {
   SERVICE_ALERTS_QUERY_KEY,
 } from "@/lib/service-alerts";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import type {
   JourneyOption,
   TransitAlert,
@@ -109,11 +110,11 @@ function toDateValue(date: Date) {
   ].join("-");
 }
 
-function formatTripTime(value?: string) {
+function formatTripTime(value?: string, locale = "en-US") {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
@@ -211,6 +212,7 @@ function TripTimeSheet({
   onClose: () => void;
   onApply: (mode: TripTimeMode, requestedTime?: string) => void;
 }) {
+  const { t, locale } = useI18n();
   const startingDate = currentTime ? new Date(currentTime) : getDefaultTripDateTime();
   const safeStartingDate = Number.isFinite(startingDate.getTime())
     ? startingDate
@@ -265,11 +267,11 @@ function TripTimeSheet({
       value: toDateValue(date),
       label:
         index === 0
-          ? "Today"
+          ? t("Today")
           : index === 1
-            ? "Tomorrow"
-            : new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date),
-      detail: new Intl.DateTimeFormat("en-US", {
+            ? t("Tomorrow")
+            : new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date),
+      detail: new Intl.DateTimeFormat(locale, {
         month: "short",
         day: "numeric",
       }).format(date),
@@ -313,10 +315,10 @@ function TripTimeSheet({
       >
         <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-charcoal-500" aria-hidden="true" />
         <h2 id="trip-time-title" className="text-base font-semibold text-ink">
-          Choose trip time
+          {t("Choose trip time")}
         </h2>
 
-        <div className="mt-4 grid grid-cols-3 border-b border-hairline" aria-label="Trip time type">
+        <div className="mt-4 grid grid-cols-3 border-b border-hairline" aria-label={t("Trip time type")}>
           {(["now", "leave", "arrive"] as TripTimeMode[]).map((mode) => (
             <button
               key={mode}
@@ -330,7 +332,7 @@ function TripTimeSheet({
                 draftMode === mode ? "text-transit-blue" : "text-body",
               )}
             >
-              {mode === "now" ? "Now" : mode === "leave" ? "Leave" : "Arrive"}
+              {t(mode === "now" ? "Now" : mode === "leave" ? "Leave" : "Arrive")}
               {draftMode === mode ? (
                 <span className="absolute inset-x-0 bottom-0 h-0.5 bg-transit-blue" aria-hidden="true" />
               ) : null}
@@ -339,7 +341,7 @@ function TripTimeSheet({
         </div>
 
         <div className="py-6">
-          <div className="grid grid-cols-2 rounded-[var(--radius-md)] bg-canvas-soft p-1" aria-label="Date and time editor">
+          <div className="grid grid-cols-2 rounded-[var(--radius-md)] bg-canvas-soft p-1" aria-label={t("Date and time editor")}>
             {(["time", "date"] as const).map((tab) => (
               <button
                 key={tab}
@@ -351,19 +353,19 @@ function TripTimeSheet({
                   editorTab === tab ? "bg-canvas text-ink" : "text-body",
                 )}
               >
-                {tab === "time" ? "Time" : "Date"}
+                {t(tab === "time" ? "Time" : "Date")}
               </button>
             ))}
           </div>
 
           {editorTab === "time" ? (
-            <div className="relative mt-3 grid grid-cols-3 gap-2" aria-label="Time picker">
+            <div className="relative mt-3 grid grid-cols-3 gap-2" aria-label={t("Time picker")}>
               <div
                 className="pointer-events-none absolute inset-x-0 top-11 h-11 rounded-[var(--radius-md)] bg-canvas-soft"
                 aria-hidden="true"
               />
               <TimeWheelColumn
-                label="Hour"
+                label={t("Hour")}
                 values={HOUR_VALUES}
                 value={draftHour}
                 onChange={(hour) => {
@@ -372,7 +374,7 @@ function TripTimeSheet({
                 }}
               />
               <TimeWheelColumn
-                label="Minute"
+                label={t("Minute")}
                 values={MINUTE_VALUES}
                 value={draftMinute}
                 onChange={(minute) => {
@@ -382,7 +384,7 @@ function TripTimeSheet({
                 formatValue={(minute) => String(minute).padStart(2, "0")}
               />
               <TimeWheelColumn
-                label="AM or PM"
+                label={t("AM or PM")}
                 values={PERIOD_VALUES}
                 value={draftPeriod}
                 onChange={(period) => {
@@ -392,7 +394,7 @@ function TripTimeSheet({
               />
             </div>
           ) : (
-            <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Trip date">
+            <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("Trip date")}>
               {dateOptions.map((option) => (
                 <button
                   key={option.value}
@@ -419,7 +421,7 @@ function TripTimeSheet({
 
           {isPastSelection ? (
             <p className="mt-3 text-xs font-medium text-closure" role="status">
-              Choose a future date or time.
+              {t("Choose a future date or time.")}
             </p>
           ) : null}
           </div>
@@ -430,7 +432,7 @@ function TripTimeSheet({
             onClick={onClose}
             className="min-h-11 rounded-[var(--radius-md)] border border-hairline bg-canvas text-sm font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal-700"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="button"
@@ -438,7 +440,7 @@ function TripTimeSheet({
             disabled={isPastSelection}
             className="min-h-11 rounded-[var(--radius-md)] bg-transit-blue text-sm font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            Done
+            {t("Done")}
           </button>
         </div>
       </section>
@@ -465,15 +467,16 @@ function JourneyCard({
     requestedTime?: string;
   };
 }) {
+  const { t } = useI18n();
   const isLive = journey.dataSource === "live";
   const isNearLive =
     isLive && journey.etaMinutes != null && journey.etaMinutes <= 20;
   const liveScheduleStatus =
     isLive && journey.scheduleDeviationMinutes != null
       ? journey.scheduleDeviationMinutes >= 2
-        ? "Delayed"
+        ? t("Delayed")
         : journey.scheduleDeviationMinutes <= -2
-          ? "Early"
+          ? t("Early")
           : undefined
       : undefined;
   const liveStatusTone =
@@ -493,14 +496,20 @@ function JourneyCard({
       to="/directions/$journeyId"
       params={{ journeyId: journey.id }}
       search={search}
-      aria-label={`${journey.travelMinutes} minute trip, ${journey.origin.time} to ${journey.destination.time}, Route ${journey.route} to ${journey.routeHeadsign}`}
+      aria-label={t("{minutes} minute trip, {start} to {end}, Route {route} to {headsign}", {
+        minutes: journey.travelMinutes,
+        start: journey.origin.time,
+        end: journey.destination.time,
+        route: journey.route,
+        headsign: journey.routeHeadsign,
+      })}
       className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3 rounded-[var(--radius-md)] border border-hairline bg-canvas px-3 py-4 transition-colors hover:bg-canvas-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal-700"
     >
       <div className="flex self-stretch flex-col items-center justify-start text-center text-ink">
         <strong className="block text-2xl font-semibold leading-none">
           {journey.travelMinutes}
         </strong>
-        <span className="mt-1 block text-sm font-medium">min</span>
+        <span className="mt-1 block text-sm font-medium">{t("min")}</span>
       </div>
 
       <div className="min-w-0">
@@ -536,18 +545,18 @@ function JourneyCard({
           {isLive && journey.etaMinutes != null ? (
             <span className={cn("font-semibold", liveStatusTone)}>
               {liveScheduleStatus ? `${liveScheduleStatus} · ` : null}
-              In {journey.etaMinutes} min
+              {t("In {minutes} min", { minutes: journey.etaMinutes })}
             </span>
           ) : journey.dataSource === "scheduled" ? (
             <span className="font-medium text-ink">
-              Scheduled · At {journey.boardStop.time}
+              {t("Scheduled · At {time}", { time: journey.boardStop.time })}
             </span>
           ) : (
             <span className="font-medium text-body">
-              Simulated · At {journey.boardStop.time}
+              {t("Simulated · At {time}", { time: journey.boardStop.time })}
             </span>
           )}{" "}
-          <span aria-hidden="true">·</span> from {journey.boardStop.name}
+          <span aria-hidden="true">·</span> {t("from {stop}", { stop: journey.boardStop.name })}
         </p>
 
         {serviceAlert ? (
@@ -568,6 +577,7 @@ function JourneyCard({
 }
 
 function PlanTripPage() {
+  const { t, locale } = useI18n();
   const {
     destination,
     destinationDetail,
@@ -700,10 +710,11 @@ function PlanTripPage() {
   };
   const departureLabel =
     tripTimeMode === "arrive"
-      ? `Arrive by ${formatTripTime(requestedTime)}`
-      : `Leave by ${formatTripTime(
+      ? t("Arrive by {time}", { time: formatTripTime(requestedTime, locale) })
+      : t("Leave by {time}", { time: formatTripTime(
           tripTimeMode === "now" ? currentClock : requestedTime,
-        )}`;
+          locale,
+        ) });
   const tripSortLabels: Record<TripSort, string> = {
     "best-route": "Best route",
     "least-walking": "Least walking",
@@ -716,13 +727,13 @@ function PlanTripPage() {
         <div className="flex min-h-12 items-center">
           <Link
             to="/search"
-            aria-label="Back to search"
+            aria-label={t("Back to search")}
             className="flex h-10 w-10 items-center justify-start rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-charcoal-700"
           >
             <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />
           </Link>
           <h1 className="flex-1 text-center text-base font-semibold text-ink">
-            Plan Trip
+            {t("Plan Trip")}
           </h1>
           <span className="h-10 w-10" aria-hidden="true" />
         </div>
@@ -732,7 +743,7 @@ function PlanTripPage() {
             <div className="flex h-10 items-center gap-3 rounded-[var(--radius-pill)] border border-hairline px-4">
               <FigmaIcon name="myLocation" size={16} className="h-4 w-4 shrink-0" />
               <span className="text-sm text-body">
-                {origin?.name ?? "Finding your location…"}
+                {origin?.name === "Current location" ? t("Current location") : origin?.name ?? t("Finding your location…")}
               </span>
             </div>
             <div className="flex h-12 items-center gap-3 rounded-[var(--radius-pill)] border border-hairline px-4">
@@ -742,7 +753,7 @@ function PlanTripPage() {
           </div>
           <button
             type="button"
-            aria-label="Swap origin and destination"
+            aria-label={t("Swap origin and destination")}
             title="Origin swapping is not available yet"
             disabled
             className="flex h-11 w-11 items-center justify-center rounded-full"
@@ -755,8 +766,8 @@ function PlanTripPage() {
       <div className="flex min-h-[52px] items-center gap-2 border-b border-hairline bg-canvas px-4 py-1.5">
         <button
           type="button"
-          aria-label="Refresh trip options"
-          title="Refresh trip options"
+          aria-label={t("Refresh trip options")}
+          title={t("Refresh trip options")}
           disabled={!origin || !hasDestinationCoordinates || tripPlanQuery.isFetching}
           onClick={() => void tripPlanQuery.refetch()}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] transition-colors hover:bg-canvas-soft disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal-700"
@@ -802,20 +813,20 @@ function PlanTripPage() {
             type="button"
             aria-haspopup="menu"
             aria-expanded={filterMenuOpen}
-            aria-label={`Filter by, ${tripSortLabels[tripSort]} selected`}
+            aria-label={t("Filter by, {filter} selected", { filter: t(tripSortLabels[tripSort]) })}
             onClick={() => {
               setFilterMenuOpen((open) => !open);
               setTimeSheetOpen(false);
             }}
             className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-md)] bg-canvas-soft px-3 text-xs font-bold text-ink transition-colors hover:bg-canvas-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal-700"
           >
-            Filter by
+            {t("Filter by")}
             <FigmaIcon name="chevronSmall" size={20} className="h-5 w-5" />
           </button>
           {filterMenuOpen ? (
             <div
               role="menu"
-              aria-label="Filter trip options"
+              aria-label={t("Filter trip options")}
               className="absolute right-0 top-[calc(100%+4px)] z-30 min-w-40 overflow-hidden rounded-[var(--radius-md)] border border-hairline bg-canvas"
             >
               {(Object.keys(tripSortLabels) as TripSort[]).map((sort) => (
@@ -835,7 +846,7 @@ function PlanTripPage() {
                       : "font-medium text-body",
                   )}
                 >
-                  {tripSortLabels[sort]}
+                  {t(tripSortLabels[sort])}
                 </button>
               ))}
             </div>
@@ -845,12 +856,12 @@ function PlanTripPage() {
 
       <div className="px-3 pr-4 pt-2 text-xs leading-relaxed text-body" role="status">
         {tripPlanQuery.isPending && hasDestinationCoordinates ? (
-          <p>Finding current TheBus trips…</p>
+          <p>{t("Finding current TheBus trips…")}</p>
         ) : useMockFallback && !tripPlanQuery.isError ? (
-          <p>Official planning is unavailable. Showing a simulated preview.</p>
+          <p>{t("Official planning is unavailable. Showing a simulated preview.")}</p>
         ) : null}
         {origin?.isFallback ? (
-          <p className="mt-1">Location unavailable · using a downtown preview origin.</p>
+          <p className="mt-1">{t("Location unavailable · using a downtown preview origin.")}</p>
         ) : null}
         {tripPlanQuery.data?.error ? (
           <p className="mt-1">{tripPlanQuery.data.error}</p>
@@ -863,24 +874,24 @@ function PlanTripPage() {
           className="mx-3 mt-3 rounded-[var(--radius-md)] border border-hairline bg-canvas px-4 py-3"
         >
           <h2 className="text-sm font-semibold text-ink">
-            Current trips are temporarily unavailable
+            {t("Current trips are temporarily unavailable")}
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-body">
-            Check your connection and try again. Simulated options are shown below so you can still preview the flow.
+            {t("Check your connection and try again. Simulated options are shown below so you can still preview the flow.")}
           </p>
           <button
             type="button"
             onClick={() => void tripPlanQuery.refetch()}
             className="mt-3 inline-flex min-h-9 items-center rounded-[var(--radius-xs)] border border-brand-blue-border bg-brand-blue-subtle px-3 text-xs font-semibold text-brand-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
           >
-            Try again
+            {t("Try again")}
           </button>
         </section>
       ) : null}
 
       {tripPlanQuery.isPending && hasDestinationCoordinates ? (
-        <section className="space-y-2 px-4 py-5" aria-label="Loading trip options">
-          <span className="sr-only">Finding current trip options</span>
+        <section className="space-y-2 px-4 py-5" aria-label={t("Loading trip options")}>
+          <span className="sr-only">{t("Finding current trip options")}</span>
           {[0, 1, 2].map((item) => (
             <div
               key={item}
@@ -890,7 +901,7 @@ function PlanTripPage() {
         </section>
       ) : recommended ? (
         <section className="px-4 py-4">
-          <h2 className="mb-2 text-sm font-bold text-ink">Trip options</h2>
+          <h2 className="mb-2 text-sm font-bold text-ink">{t("Trip options")}</h2>
           <div className="flex flex-col gap-2">
             <JourneyCard
               journey={recommended}
@@ -915,12 +926,12 @@ function PlanTripPage() {
         </section>
       ) : (
         <section className="px-6 py-12 text-center">
-          <h2 className="text-base font-semibold text-ink">No direct trip found</h2>
+          <h2 className="text-base font-semibold text-ink">{t("No direct trip found")}</h2>
           <p className="mt-2 text-sm text-body">
-            This first release plans direct bus trips. Trips requiring a transfer are not available yet.
+            {t("This first release plans direct bus trips. Trips requiring a transfer are not available yet.")}
           </p>
           <Link to="/search" className="mt-5 inline-flex min-h-11 items-center rounded-[var(--radius-md)] bg-transit-blue-soft px-5 text-sm font-semibold text-transit-blue">
-            Choose another destination
+            {t("Choose another destination")}
           </Link>
         </section>
       )}

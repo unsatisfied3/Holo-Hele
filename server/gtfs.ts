@@ -5,7 +5,6 @@ import type {
   DailyScheduleDeparture,
   JourneyCoordinate,
   JourneyOption,
-  ScheduleDay,
   StopLocation,
   StopSearchResult,
   TheBusArrival,
@@ -351,6 +350,40 @@ function getHonoluluServiceTime(now = new Date()): {
   };
 }
 
+function getDailyScheduleServiceTime(date: string): ReturnType<typeof getHonoluluServiceTime> {
+  if (date === "today") return getHonoluluServiceTime();
+  if (date === "tomorrow") {
+    return getHonoluluServiceTime(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return getHonoluluServiceTime();
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day, 12));
+  if (
+    calendarDate.getUTCFullYear() !== year ||
+    calendarDate.getUTCMonth() !== month - 1 ||
+    calendarDate.getUTCDate() !== day
+  ) {
+    return getHonoluluServiceTime();
+  }
+
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+  }).format(calendarDate).toLocaleLowerCase();
+
+  return {
+    dateKey: `${match[1]}${match[2]}${match[3]}`,
+    displayDate: date,
+    weekday,
+    seconds: 0,
+  };
+}
+
 function parseGtfsTimeSeconds(value: string): number | null {
   const [hours, minutes, seconds] = value.split(":").map(Number);
   if (![hours, minutes, seconds].every(Number.isFinite)) return null;
@@ -554,7 +587,7 @@ export async function getGtfsStopSchedule(
 export async function getGtfsDailyStopSchedule(
   stopId: string,
   routeFilter?: string,
-  day: ScheduleDay = "today",
+  date: string = "today",
 ): Promise<{
   stop: StopLocation;
   serviceDate: string;
@@ -565,10 +598,7 @@ export async function getGtfsDailyStopSchedule(
   const stop = index.stopsById.get(stopId);
   if (!stop) return null;
 
-  const serviceDate = day === "tomorrow"
-    ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-    : new Date();
-  const serviceTime = getHonoluluServiceTime(serviceDate);
+  const serviceTime = getDailyScheduleServiceTime(date);
   const normalizedFilter = routeFilter
     ? normalizeRouteShortName(routeFilter)
     : null;

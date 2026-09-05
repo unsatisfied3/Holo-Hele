@@ -5,6 +5,7 @@ import {
   toggleFavoriteStop,
   useFavoriteStopIds,
 } from "@/lib/favorites";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { StopLocation } from "@/types/transit";
 
@@ -22,6 +23,7 @@ export function StopDetailHeader({
   stop,
   fromFavorites = false,
 }: StopDetailHeaderProps) {
+  const { t } = useI18n();
   const favoriteStopIds = useFavoriteStopIds();
   const isFavorite = favoriteStopIds.includes(stop.id);
 
@@ -32,7 +34,7 @@ export function StopDetailHeader({
           <Link
             to="/favorites"
             search={{ tab: "stops" }}
-            aria-label="Back to favorite stops"
+            aria-label={t("Back to favorite stops")}
             className="flex h-10 w-6 shrink-0 items-center justify-start text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />
@@ -40,13 +42,13 @@ export function StopDetailHeader({
         ) : (
           <Link
             to="/home"
-            aria-label="Back to map"
+            aria-label={t("Back to map")}
             className="flex h-10 w-6 shrink-0 items-center justify-start text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <FigmaIcon name="arrowBack" size={24} className="h-6 w-6" />
           </Link>
         )}
-        <h1 className="flex-1 text-center text-base font-semibold text-ink">Stop</h1>
+        <h1 className="flex-1 text-center text-base font-semibold text-ink">{t("Stop")}</h1>
         <span className="h-10 w-6 shrink-0" aria-hidden="true" />
       </header>
 
@@ -56,7 +58,7 @@ export function StopDetailHeader({
         <div className="flex flex-col gap-6">
           <div>
             <h2 className="text-lg font-medium leading-snug text-ink">{stop.name}</h2>
-            <p className="mt-2 text-xs text-body">Stop {stop.id}</p>
+            <p className="mt-2 text-xs text-body">{t("Stop {id}", { id: stop.id })}</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -73,9 +75,9 @@ export function StopDetailHeader({
                 size={20}
                 className="icon-brand-blue h-5 w-5"
               />
-              <span className="text-sm font-medium">Schedule</span>
+              <span className="text-sm font-medium">{t("Schedule")}</span>
             </Link>
-            <button type="button" aria-label="Show stop on map" className={actionButtonClass}>
+            <button type="button" aria-label={t("Show stop on map")} className={actionButtonClass}>
               <FigmaIcon
                 name="place"
                 size={20}
@@ -85,7 +87,7 @@ export function StopDetailHeader({
             <button
               type="button"
               aria-label={
-                isFavorite ? "Remove from favorites" : "Save to favorites"
+                t(isFavorite ? "Remove from favorites" : "Save to favorites")
               }
               aria-pressed={isFavorite}
               onClick={() => toggleFavoriteStop(stop.id)}
@@ -98,7 +100,7 @@ export function StopDetailHeader({
               <FigmaIcon
                 name={isFavorite ? "favorites" : "favorite"}
                 size={20}
-                className="icon-brand-blue h-5 w-5"
+                className={`h-5 w-5 ${isFavorite ? "icon-brand-blue" : "icon-favorite-outline"}`}
               />
             </button>
           </div>

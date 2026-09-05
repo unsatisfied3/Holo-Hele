@@ -94,18 +94,48 @@ export function getStopAlertLabel(
 
   if (isRouteSpecificSkippedStop) {
     if (routes.length === 1) {
-      return `Line ${routes[0]} is temporarily skipping this stop.`;
+      return `Bus ${routes[0]} is temporarily skipping this stop.`;
     }
 
     if (routes.length > 1) {
       const lastRoute = routes.at(-1);
-      return `Lines ${routes.slice(0, -1).join(", ")} and ${lastRoute} are temporarily skipping this stop.`;
+      return `Buses ${routes.slice(0, -1).join(", ")} and ${lastRoute} are temporarily skipping this stop.`;
     }
   }
 
   return alert.type === "stop-closure"
     ? "Entire stop temporarily closed"
     : alert.title;
+}
+
+export function getAlertBannerHeading(alert: TransitAlert): string {
+  const noticeText = `${alert.title} ${alert.description}`;
+
+  if (/\bweather\b/i.test(noticeText)) return "Weather disruption";
+  if (alert.type === "detour") return "Detour in effect";
+  if (alert.type === "stop-skipped") return "Stop skipped";
+  if (alert.type === "stop-closure") {
+    return alert.affectedRoutes.length > 0 ? "Stop skipped" : "Stop closure";
+  }
+  if (alert.type === "service-disruption") return "Service disruption";
+  if (alert.type === "service-change") return "Service change";
+  if (alert.type === "roadwork") return "Roadwork";
+
+  return alert.title;
+}
+
+export function getAlertBannerDescription(
+  alert: TransitAlert,
+  stopId?: string,
+): string {
+  if (
+    stopId &&
+    (alert.type === "stop-skipped" || alert.type === "stop-closure")
+  ) {
+    return getStopAlertLabel(alert, stopId);
+  }
+
+  return alert.description;
 }
 
 export function getCompactStopAlertLabel(

@@ -27,6 +27,7 @@ import {
   saveLocationPreference,
 } from "@/lib/onboarding";
 import type { LanguageCode } from "@/types/transit";
+import { useI18n } from "@/lib/i18n";
 
 interface SettingsSearch {
   demoAlerts?: boolean;
@@ -162,6 +163,7 @@ function InformationLink({
 
 function SettingsPage() {
   const search = Route.useSearch();
+  const { t } = useI18n();
   const [language, setLanguage] = useState<LanguageCode>(
     () => getSavedLanguage() ?? "en",
   );
@@ -200,11 +202,11 @@ function SettingsPage() {
 
     navigator.geolocation.getCurrentPosition(
       () => {
-        setLocationMessage("Location is ready for nearby stop searches.");
+        setLocationMessage(null);
       },
       () => {
         setLocationMessage(
-          "Location is turned on, but device permission is blocked. Enable it in device settings to use nearby stops.",
+          "Location is turned on, but Holo Hele could not access it. Check your browser or device location settings.",
         );
       },
       { maximumAge: 60_000, timeout: 8_000 },
@@ -262,13 +264,15 @@ function SettingsPage() {
     <AppShell>
       <main className="h-full min-h-0 overflow-y-auto bg-canvas">
         <header className="border-b border-hairline px-5 pb-3 pt-[max(env(safe-area-inset-top),1.25rem)] text-center">
-          <h1 className="text-lg font-semibold text-ink">Settings</h1>
+          <h1 className="text-lg font-semibold text-ink">{t("Settings")}</h1>
         </header>
 
         <div className="px-5 pb-8">
           <div className="py-5 text-center">
             <HoloHeleLogo variant="compact" />
-            <p className="mt-2 text-xs text-mute">Version {packageInfo.version}</p>
+            <p className="mt-2 text-xs text-mute">
+              {t("Version {version}", { version: packageInfo.version })}
+            </p>
           </div>
 
           <section aria-labelledby="preferences-heading">
@@ -276,16 +280,16 @@ function SettingsPage() {
               id="preferences-heading"
               className="pb-1 pt-1 text-lg font-semibold text-ink"
             >
-              Preferences
+              {t("Preferences")}
             </h2>
 
             <label className="flex min-h-[56px] items-center gap-3 border-b border-hairline py-2.5">
               <SettingsRowIcon name="globe" className="h-5 w-5 shrink-0" />
               <span className="min-w-0 flex-1 text-sm font-medium text-ink">
-                Language
+                {t("Language")}
               </span>
               <select
-                aria-label="Language"
+                aria-label={t("Language")}
                 value={language}
                 onChange={(event) =>
                   updateLanguage(event.target.value as LanguageCode)
@@ -305,10 +309,10 @@ function SettingsPage() {
                 <SettingsRowIcon name="map" className="h-5 w-5 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-ink">
-                    Use my location
+                    {t("Use my location")}
                   </span>
                   <span className="mt-0.5 block text-xs text-body">
-                    Find nearby stops when the map opens
+                    {t("Find nearby stops when the map opens")}
                   </span>
                 </span>
                 <input
@@ -331,10 +335,10 @@ function SettingsPage() {
                 <SettingsRowIcon name="alert" className="h-5 w-5 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-ink">
-                    Service alerts
+                    {t("Service alerts")}
                   </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-body">
-                    Get notified about major delays, detours, closures, and service changes affecting your saved routes.
+                    {t("Get notified about major delays, detours, closures, and service changes affecting your saved routes.")}
                   </span>
                 </span>
                 <input
@@ -354,7 +358,7 @@ function SettingsPage() {
                   onClick={() => void sendTestNotification()}
                   className="mb-3 ml-8 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-xs)] border border-brand-blue-border bg-brand-blue-subtle px-3 text-sm font-medium text-brand-blue transition-colors hover:bg-brand-blue-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
                 >
-                  Send test notification
+                  {t("Send test notification")}
                 </button>
               ) : null}
 
@@ -405,10 +409,10 @@ function SettingsPage() {
                 id={`settings-${section.title.toLowerCase()}`}
                 className="pb-1 text-lg font-semibold text-ink"
               >
-                {section.title}
+                {t(section.title)}
               </h2>
               {section.rows.map((row) => (
-                <InformationLink key={row.label} {...row} />
+                <InformationLink key={row.label} {...row} label={t(row.label)} />
               ))}
             </section>
           ))}

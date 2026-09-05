@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { FigmaIcon, SettingsIcon } from "@/components/icons/FigmaIcon";
 import type { FigmaIconName } from "@/lib/figma-icons";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const tabs: {
   href: string;
@@ -14,6 +15,7 @@ const tabs: {
 ];
 
 export function BottomNav() {
+  const { t } = useI18n();
   const pathname = useLocation({ select: (location) => location.pathname });
   const showNav = tabs.some((tab) => tab.href === pathname);
 
@@ -21,7 +23,7 @@ export function BottomNav() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("Primary")}
       className="relative z-[1100] shrink-0 border-t border-hairline bg-canvas pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1"
     >
       <div className="grid grid-cols-3 px-2">
@@ -49,7 +51,7 @@ export function BottomNav() {
                   className={cn("h-6 w-6", active && "icon-transit-blue")}
                 />
               )}
-              {tab.label}
+              {t(tab.label)}
             </Link>
           );
         })}
